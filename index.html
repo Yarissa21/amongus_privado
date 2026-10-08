@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a1420" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" href="icono.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <title>Misterio en la Mansión</title>
+  </head>
+  <body>
+    <div id="juego"></div>
+
+    <!-- Menú principal -->
+    <section id="menu" class="pantalla">
+      <div class="caja caja-menu">
+        <h1 class="titulo">Misterio<br /><small>en la</small><br />Mansión</h1>
+        <p class="lema">Hay un asesino entre ustedes...</p>
+        <label class="campo">Tu nombre
+          <input id="menu-nombre" maxlength="12" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="fila">
+          <label class="campo campo-chico">Bots
+            <select id="menu-bots"></select>
+          </label>
+          <button id="menu-solo" class="boton boton-principal">Jugar con bots</button>
+        </div>
+        <hr />
+        <button id="menu-crear" class="boton">Crear sala en línea</button>
+        <div class="fila">
+          <input id="menu-codigo" class="entrada-codigo" maxlength="4" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" />
+          <button id="menu-unirse" class="boton">Unirse</button>
+        </div>
+        <p id="menu-estado" class="estado"></p>
+        <button id="menu-ayuda" class="boton boton-sec">¿Cómo se juega?</button>
+      </div>
+    </section>
+
+    <!-- Ayuda -->
+    <section id="ayuda" class="pantalla" hidden>
+      <div class="caja caja-ayuda">
+        <h2>¿Cómo se juega?</h2>
+        <p>Están todos en una mansión. Uno (o dos) son <b class="rojo">asesinos</b> y el resto son <b class="verde">inocentes</b>.</p>
+        <ul>
+          <li><b>Inocentes:</b> hagan las tareas de la casa y descubran al asesino. Si encuentran un cuerpo, repórtenlo.</li>
+          <li><b>Asesino:</b> elimina a los inocentes sin que te vean. Puedes apagar las luces, usar los pasadizos secretos (chimenea, estante, armario y alacena) y disfrazarte de otro jugador para incriminarlo.</li>
+          <li><b>Reuniones:</b> al reportar un cuerpo o tocar la campana del comedor, todos discuten en el chat y votan a quién expulsar.</li>
+          <li>Ganan los inocentes si terminan todas las tareas o expulsan a los asesinos. Gana el asesino si quedan tantos asesinos como inocentes.</li>
+        </ul>
+        <p>Roles especiales (el anfitrión elige su probabilidad): <b class="verde">Alertador, Médico, Juez, Detective, Camarógrafo, Ángel</b> y <b class="rojo">Cambiaformas, Venenosa, Fantasma, Alien</b>. Al empezar se explica qué hace el tuyo.</p>
+        <table class="teclas">
+          <tr><td>Mover</td><td>WASD / flechas</td></tr>
+          <tr><td>Usar / tarea</td><td>E o Espacio</td></tr>
+          <tr><td>Reportar cuerpo</td><td>R</td></tr>
+          <tr><td>Matar (asesino)</td><td>Q</td></tr>
+          <tr><td>Apagar luces (asesino)</td><td>F</td></tr>
+          <tr><td>Disfraz / cambiaformas (asesino)</td><td>C</td></tr>
+          <tr><td>Habilidad del rol especial</td><td>V</td></tr>
+          <tr><td>Mapa</td><td>M</td></tr>
+        </table>
+        <button id="ayuda-cerrar" class="boton boton-principal">Entendido</button>
+      </div>
+    </section>
+
+    <!-- Sala de espera -->
+    <section id="sala" class="pantalla" hidden>
+      <div class="caja caja-sala">
+        <h2 id="sala-titulo">Sala de espera</h2>
+        <p class="codigo-sala" id="sala-codigo-fila">Código: <b id="sala-codigo">----</b></p>
+        <p class="ayuda-chica" id="sala-ayuda">Comparte el código con tus amigos para que se unan.</p>
+        <ul id="sala-jugadores" class="lista-jugadores"></ul>
+        <div class="colores" id="sala-colores"></div>
+        <div id="sala-ajustes" class="ajustes"></div>
+        <div id="sala-anfitrion" class="col">
+          <div class="fila">
+            <button id="sala-mas-bot" class="boton boton-sec">+ Bot</button>
+            <button id="sala-menos-bot" class="boton boton-sec">− Bot</button>
+          </div>
+          <button id="sala-iniciar" class="boton boton-principal">Empezar</button>
+        </div>
+        <p id="sala-espera" class="ayuda-chica" hidden>Esperando a que el anfitrión empiece...</p>
+        <p id="sala-estado" class="estado"></p>
+        <button id="sala-salir" class="boton boton-sec">Salir</button>
+      </div>
+    </section>
+
+    <!-- HUD de la partida -->
+    <section id="hud" hidden>
+      <div class="hud-arriba">
+        <div class="caja caja-tareas">
+          <div class="tareas-titulo" id="hud-rol">Tareas</div>
+          <div id="hud-rol-especial" class="rol-especial" hidden>
+            <b id="hud-rol-nombre"></b>
+            <span id="hud-rol-uso"></span>
+          </div>
+          <ul id="hud-tareas"></ul>
+        </div>
+        <div class="progreso">
+          <span>Tareas de la casa</span>
+          <div class="barra"><div id="hud-progreso"></div></div>
+        </div>
+        <button id="hud-mapa" class="boton-redondo" title="Mapa (M)">▦</button>
+        <button id="hud-musica" class="boton-redondo" title="Música de suspenso">♫</button>
+        <button id="hud-sonido" class="boton-redondo" title="Efectos de sonido">♪</button>
+      </div>
+      <div id="hud-lugar" class="letrero"></div>
+      <div id="hud-aviso" class="aviso" hidden></div>
+      <div class="acciones">
+        <button data-accion="habilidad" class="accion accion-habilidad" hidden><span class="tecla">V</span><span class="nombre">Habilidad</span><span class="cd"></span></button>
+        <button data-accion="disfraz" class="accion accion-disfraz" hidden><span class="tecla">C</span><span class="nombre">Disfraz</span><span class="cd"></span></button>
+        <button data-accion="sabotaje" class="accion accion-sabotaje" hidden><span class="tecla">F</span><span class="nombre">Apagar</span><span class="cd"></span></button>
+        <button data-accion="matar" class="accion accion-matar" hidden><span class="tecla">Q</span><span class="nombre">Matar</span><span class="cd"></span></button>
+        <button data-accion="reportar" class="accion accion-reportar"><span class="tecla">R</span><span class="nombre">Reportar</span><span class="cd"></span></button>
+        <button data-accion="usar" class="accion accion-usar"><span class="tecla">E</span><span class="nombre">Usar</span><span class="cd"></span></button>
+      </div>
+      <div id="joystick" class="joystick" hidden><div class="joystick-base"><div class="joystick-palanca"></div></div></div>
+    </section>
+
+    <!-- Mapa de la mansión -->
+    <section id="mapa" class="capa-mapa" hidden>
+      <div class="caja caja-mapa">
+        <div class="mj-cabecera">
+          <h2>Mapa de la mansión</h2>
+          <button id="mapa-cerrar" class="boton-redondo" title="Cerrar">✕</button>
+        </div>
+        <div class="mapa-lienzos">
+          <canvas id="mapa-base"></canvas>
+          <canvas id="mapa-marcas"></canvas>
+        </div>
+        <div class="mapa-pie">
+          <span class="mapa-leyenda">● Tú &nbsp; <b>!</b> Tus tareas</span>
+          <button id="mapa-sabotaje" class="boton boton-principal" hidden>💡 Apagar luces</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Minijuegos de las tareas -->
+    <section id="minijuego" class="pantalla pantalla-oscura" hidden>
+      <div class="caja caja-minijuego">
+        <div class="mj-cabecera">
+          <h2 id="mj-titulo">Tarea</h2>
+          <button id="mj-cerrar" class="boton-redondo" title="Cerrar">✕</button>
+        </div>
+        <p id="mj-instruccion" class="mj-instruccion"></p>
+        <div id="mj-area" class="mj-area"></div>
+      </div>
+    </section>
+
+    <!-- Revelación de rol / mensajes grandes -->
+    <section id="cartel" class="pantalla pantalla-oscura" hidden>
+      <div class="cartel">
+        <p class="cartel-sub" id="cartel-sub"></p>
+        <h2 class="cartel-titulo" id="cartel-titulo"></h2>
+        <div class="cartel-retratos" id="cartel-retratos"></div>
+        <div class="cartel-rol" id="cartel-rol" hidden>
+          <p id="cartel-rol-desc"></p>
+          <p class="cartel-rol-uso" id="cartel-rol-uso"></p>
+        </div>
+        <p class="cartel-texto" id="cartel-texto"></p>
+        <p class="cartel-continuar">Toca para continuar</p>
+      </div>
+    </section>
+
+    <!-- Reunión -->
+    <section id="reunion" class="pantalla pantalla-oscura" hidden>
+      <div class="caja caja-reunion">
+        <div class="reunion-cabecera">
+          <h2 id="reunion-titulo">¡Reunión!</h2>
+          <span id="reunion-tiempo" class="reloj">75</span>
+        </div>
+        <p id="reunion-motivo" class="reunion-motivo"></p>
+        <div class="reunion-cuerpo">
+          <div class="votacion">
+            <div id="reunion-jugadores" class="tarjetas"></div>
+            <div class="fila">
+              <button id="reunion-foto" class="boton" hidden>📷 Mostrar foto</button>
+              <button id="reunion-veredicto" class="boton boton-juez" hidden>⚖ Veredicto</button>
+              <button id="reunion-saltar" class="boton boton-sec">Saltar voto</button>
+              <button id="reunion-votar" class="boton boton-principal" disabled>Votar</button>
+            </div>
+          </div>
+          <div class="chat">
+            <div id="reunion-chat" class="chat-lista"></div>
+            <form id="reunion-form" class="fila">
+              <input id="reunion-entrada" maxlength="140" placeholder="Escribe aquí..." autocomplete="off" />
+              <button class="boton">↵</button>
+            </form>
+          </div>
+        </div>
+        <div id="reunion-dialogo" class="dialogo" hidden></div>
+      </div>
+    </section>
+
+    <!-- Fin -->
+    <section id="fin" class="pantalla pantalla-oscura" hidden>
+      <div class="caja caja-fin">
+        <h2 id="fin-titulo"></h2>
+        <p id="fin-motivo"></p>
+        <div id="fin-roles" class="tarjetas tarjetas-fin"></div>
+        <div class="fila">
+          <button id="fin-otra" class="boton boton-principal">Jugar otra vez</button>
+          <button id="fin-menu" class="boton boton-sec">Menú</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="girar">Gira el teléfono para jugar en horizontal ↻</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
