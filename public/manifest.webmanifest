@@ -1,0 +1,10 @@
+{
+  "name": "Misterio en la Mansión",
+  "short_name": "Misterio",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1a1420",
+  "theme_color": "#1a1420",
+  "icons": [{ "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

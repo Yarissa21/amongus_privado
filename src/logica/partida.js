@@ -75,7 +75,8 @@ export default class Partida {
           casos: [],
           camaraPuesta: false,
           foto: null,
-          juezUsado: false
+          juezUsado: false,
+          enPasadizo: -1
         }
       ])
     );
@@ -219,14 +220,9 @@ export default class Partida {
       case 'arreglar':
         if (this.fase === 'juego' && this.luces.apagadas && dist(j, FUSIBLES) <= DISTANCIA.usar + 10) this.encenderLuces();
         break;
-      case 'pasadizo': {
-        const i = msg.i | 0;
-        const p = PASADIZOS[i];
-        if (this.fase !== 'juego' || j.rol !== 'asesino' || !j.vivo || !p || dist(j, p) > DISTANCIA.usar + 10) return;
-        const destino = PASADIZOS[(i + 1) % PASADIZOS.length];
-        this.teletransportar(j, destino.x, destino.y);
+      case 'pasadizo':
+        this.pasadizo(j, msg);
         break;
-      }
       case 'chat':
         this.chat(j, msg.texto);
         break;
@@ -252,6 +248,34 @@ export default class Partida {
     if (this.fase === 'juego') this.anunciar({ t: 'aviso', tipo: 'disfraz', x: j.x, y: j.y });
   }
 
+  // Pasadizos: el asesino entra, queda escondido, se mueve entre salidas y elige cuándo salir.
+  pasadizo(j, msg) {
+    if (this.fase !== 'juego' || j.rol !== 'asesino' || !j.vivo) return;
+    const n = PASADIZOS.length;
+    if (msg.accion === 'entrar') {
+      const i = msg.i | 0;
+      const p = PASADIZOS[i];
+      if (j.enPasadizo >= 0 || !p || dist(j, p) > DISTANCIA.usar + 10) return;
+      j.enPasadizo = i;
+      this.anunciar({ t: 'aviso', tipo: 'pasadizo', x: p.x, y: p.y });
+      this.teletransportar(j, p.x, p.y);
+    } else if (msg.accion === 'mover' && j.enPasadizo >= 0) {
+      j.enPasadizo = (j.enPasadizo + (msg.dir < 0 ? n - 1 : 1)) % n;
+      const p = PASADIZOS[j.enPasadizo];
+      this.teletransportar(j, p.x, p.y);
+    } else if (msg.accion === 'salir' && j.enPasadizo >= 0) {
+      const p = PASADIZOS[j.enPasadizo];
+      j.enPasadizo = -1;
+      this.teletransportar(j, p.x, p.y);
+      this.anunciar({ t: 'aviso', tipo: 'pasadizo', x: p.x, y: p.y });
+    }
+  }
+
+  // Escondido para los demás: invisible (fantasma) o dentro de un pasadizo
+  oculto(j) {
+    return j.invisible > 0 || j.enPasadizo >= 0;
+  }
+
   apariencia(j) {
     return j.disfraz ? j.disfraz.id : j.id;
   }
@@ -268,7 +292,7 @@ export default class Partida {
 
   intentarMatar(asesino, victima) {
     if (this.fase !== 'juego' || !asesino || !victima) return;
-    if (asesino.rol !== 'asesino' || !asesino.vivo || asesino.cdMatar > 0) return;
+    if (asesino.rol !== 'asesino' || !asesino.vivo || asesino.cdMatar > 0 || asesino.enPasadizo >= 0) return;
     if (!victima.vivo || victima.infectado || victima.rol === 'asesino' || victima.desconectado) return;
     if (dist(asesino, victima) > DISTANCIA.matar + 8) return;
 
@@ -400,6 +424,7 @@ export default class Partida {
       j.disfraz = null;
       j.invisible = 0;
       j.viendoVitales = false;
+      j.enPasadizo = -1;
     }
     const victimas = [...this.cuerpos.map((c) => c.id), ...misteriosos];
     this.cuerpos = [];
@@ -553,6 +578,7 @@ export default class Partida {
     if (!j || j.desconectado) return;
     j.desconectado = true;
     j.vivo = false;
+    j.enPasadizo = -1;
     this.anunciar({ t: 'aviso', tipo: 'salio', id });
     if (this.fase === 'reunion') {
       this.reunion.votos.delete(id);
@@ -662,9 +688,9 @@ export default class Partida {
         if (!j.vivo && r.vivo) continue;
         // Invisible: solo lo ven él mismo, su cómplice y los fantasmas
         const puedeVerInvisible = j.id === r.id || !r.vivo || (r.rol === 'asesino' && j.rol === 'asesino');
-        if (j.invisible > 0 && !puedeVerInvisible) continue;
+        if (this.oculto(j) && !puedeVerInvisible) continue;
         let banderas = 0;
-        if (j.invisible > 0) banderas |= BANDERA.invisible;
+        if (this.oculto(j)) banderas |= BANDERA.invisible;
         if (j.escudo > 0 && !r.vivo) banderas |= BANDERA.escudo;
         filas.push([j.id, Math.round(j.x), Math.round(j.y), j.dir, j.mov ? 1 : 0, j.vivo ? 1 : 0, j.disfraz ? j.disfraz.id : 0, banderas]);
       }
@@ -687,6 +713,7 @@ export default class Partida {
           rt: this.reunion ? Math.ceil(this.reunion.tiempo) : 0,
           inf: r.infectado > 0 ? Math.ceil(r.infectado) : 0,
           foto: r.foto ? 1 : 0,
+          pz: r.enPasadizo,
           h: this.habilidad(r)
         }
       });

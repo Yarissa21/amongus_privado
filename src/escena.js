@@ -65,7 +65,7 @@ export default class EscenaMundo extends Phaser.Scene {
     this.formaVision = this.make.graphics({ add: false });
     this.flecha = this.add.image(0, 0, 'flecha').setScrollFactor(0).setDepth(9500).setVisible(false);
 
-    this.teclas = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,F,C,V,M', false);
+    this.teclas = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,F,C,V,M,L', false);
     this.camaraImg = this.add.image(0, 0, 'camara').setOrigin(0.5, 1).setVisible(false);
     this.miCamaraImg = this.add.image(0, 0, 'camara').setOrigin(0.5, 1).setVisible(false).setAlpha(0.5);
     this.gritos = [];
@@ -170,6 +170,16 @@ export default class EscenaMundo extends Phaser.Scene {
     contornear(gr.ctx, 0, 0, 17, 17);
     this.textures.addCanvas('grito', gr.canvas);
 
+    // Ondas de voz sobre quien habla
+    const voz = lienzo(11, 7);
+    px(voz.ctx, '#ffffff', 1, 2, 2, 3);
+    px(voz.ctx, '#ffffff', 3, 1, 1, 5);
+    px(voz.ctx, '#78e890', 5, 2, 1, 3);
+    px(voz.ctx, '#78e890', 7, 1, 1, 5);
+    px(voz.ctx, '#78e890', 9, 0, 1, 7);
+    contornear(voz.ctx, 0, 0, 11, 7);
+    this.textures.addCanvas('voz', voz.canvas);
+
     const esq = lienzo(3, 3);
     px(esq.ctx, '#a8e0ff', 0, 0, 3, 3);
     px(esq.ctx, '#ffffff', 0, 0, 1, 1);
@@ -233,6 +243,7 @@ export default class EscenaMundo extends Phaser.Scene {
       v.sombra.destroy();
       v.nombre.destroy();
       v.escudoImg.destroy();
+      v.vozImg.destroy();
     }
     this.vistas.clear();
     for (const c of this.cuerpos.values()) c.destroy();
@@ -263,7 +274,8 @@ export default class EscenaMundo extends Phaser.Scene {
     if (this.yo && this.yo.companeros.has(j.id)) nombre.setTint(0xff7070);
     if (this.yo && j.id === this.yo.id && this.yo.rol === 'asesino') nombre.setTint(0xff7070);
     const escudoImg = this.add.image(0, 0, 'escudo').setOrigin(0.5, 1).setVisible(false);
-    this.vistas.set(j.id, { id: j.id, color: j.color, spr, sombra, nombre, escudoImg, x: 0, y: 0, objetivo: null, dir: 0, mov: false, vivo: true, apariencia: j.id, lookId: j.id, invisible: false, escudo: false });
+    const vozImg = this.add.image(0, 0, 'voz').setOrigin(0.5, 1).setDepth(7001).setVisible(false);
+    this.vistas.set(j.id, { id: j.id, color: j.color, spr, sombra, nombre, escudoImg, vozImg, x: 0, y: 0, objetivo: null, dir: 0, mov: false, vivo: true, apariencia: j.id, lookId: j.id, invisible: false, escudo: false });
   }
 
   crearBurbujas() {
@@ -314,7 +326,11 @@ export default class EscenaMundo extends Phaser.Scene {
           sonar(msg.alien ? 'alien' : 'matar');
           this.cameras.main.shake(160, 0.006);
         }
-        if (msg.tipo === 'disfraz' || msg.tipo === 'esfumar') this.humo(msg.x, msg.y);
+        if (msg.tipo === 'disfraz' || msg.tipo === 'esfumar' || msg.tipo === 'pasadizo') this.humo(msg.x, msg.y);
+        if (msg.tipo === 'salio') {
+          const v = this.vistas.get(msg.id);
+          if (v) v.presente = false;
+        }
         if (msg.tipo === 'grito' && msg.id !== this.yo.id) this.agregarGrito(msg.x, msg.y);
         if (msg.tipo === 'escudoRoto') this.esquirlas(msg.x, msg.y);
         if (msg.tipo === 'camaraPuesta') this.miCamara = { x: msg.x, y: msg.y };
@@ -401,7 +417,7 @@ export default class EscenaMundo extends Phaser.Scene {
       const d = dist(yo, t);
       if (d <= DISTANCIA.usar) considerar({ tipo: 'tarea', id, nombre: t.nombre, x: t.x, y: t.y }, d);
     }
-    if (yo.vivo && yo.rol === 'asesino') {
+    if (yo.vivo && yo.rol === 'asesino' && !this.enPasadizo()) {
       PASADIZOS.forEach((p, i) => {
         const d = dist(yo, p);
         if (d <= DISTANCIA.usar) considerar({ tipo: 'pasadizo', i, nombre: 'Pasadizo' }, d);
@@ -420,8 +436,12 @@ export default class EscenaMundo extends Phaser.Scene {
     return mejor;
   }
 
+  enPasadizo() {
+    return this.estado.yo.pz >= 0;
+  }
+
   victimaCercana() {
-    if (this.yo.rol !== 'asesino' || !this.yo.vivo) return null;
+    if (this.yo.rol !== 'asesino' || !this.yo.vivo || this.enPasadizo()) return null;
     let mejor = null;
     for (const v of this.vistas.values()) {
       if (v.id === this.yo.id || !v.vivo || !v.presente || this.yo.companeros.has(v.id)) continue;
@@ -442,6 +462,14 @@ export default class EscenaMundo extends Phaser.Scene {
   accion(nombre) {
     if (!this.puedeMover()) return;
     const yo = this.yo;
+    // Dentro de un pasadizo solo se puede cambiar de salida o salir
+    if (this.enPasadizo()) {
+      if (nombre === 'pzAnterior' || nombre === 'pzSiguiente') {
+        sonar('pasadizo');
+        this.enlace.enviar({ t: 'pasadizo', accion: 'mover', dir: nombre === 'pzAnterior' ? -1 : 1 });
+      } else if (nombre === 'pzSalir' || nombre === 'usar') this.enlace.enviar({ t: 'pasadizo', accion: 'salir' });
+      return;
+    }
     if (nombre === 'usar') {
       const c = this.candidatoUsar();
       if (!c) return;
@@ -463,7 +491,8 @@ export default class EscenaMundo extends Phaser.Scene {
         this.enlace.enviar({ t: 'recoger' });
       } else if (c.tipo === 'pasadizo') {
         sonar('pasadizo');
-        this.enlace.enviar({ t: 'pasadizo', i: c.i });
+        this.enlace.enviar({ t: 'pasadizo', accion: 'entrar', i: c.i });
+        this.estado.yo.pz = c.i;
       } else if (c.tipo === 'campana' && c.quedan > 0 && c.espera <= 0) this.enlace.enviar({ t: 'campana' });
     } else if (nombre === 'matar') {
       const v = this.victimaCercana();
@@ -511,7 +540,13 @@ export default class EscenaMundo extends Phaser.Scene {
     let dy = 0;
     const escribiendo = document.activeElement && document.activeElement.tagName === 'INPUT';
     if (!escribiendo && Phaser.Input.Keyboard.JustDown(t.M) && !this.enReunion) this.enlace.ui.mapa.alternar();
-    if (this.puedeMover()) {
+    if (this.puedeMover() && this.enPasadizo()) {
+      if (!escribiendo) {
+        if (Phaser.Input.Keyboard.JustDown(t.A) || Phaser.Input.Keyboard.JustDown(t.LEFT)) this.accion('pzAnterior');
+        if (Phaser.Input.Keyboard.JustDown(t.D) || Phaser.Input.Keyboard.JustDown(t.RIGHT)) this.accion('pzSiguiente');
+        if (Phaser.Input.Keyboard.JustDown(t.E) || Phaser.Input.Keyboard.JustDown(t.SPACE)) this.accion('pzSalir');
+      }
+    } else if (this.puedeMover()) {
       if (!escribiendo) {
         if (t.A.isDown || t.LEFT.isDown) dx -= 1;
         if (t.D.isDown || t.RIGHT.isDown) dx += 1;
@@ -523,6 +558,7 @@ export default class EscenaMundo extends Phaser.Scene {
         if (Phaser.Input.Keyboard.JustDown(t.F)) this.accion('sabotaje');
         if (Phaser.Input.Keyboard.JustDown(t.C)) this.accion('disfraz');
         if (Phaser.Input.Keyboard.JustDown(t.V)) this.accion('habilidad');
+        if (Phaser.Input.Keyboard.JustDown(t.L) && this.yo.subrol === 'detective') this.enlace.ui.abrirLibreta(this.casos);
       }
       if (!dx && !dy && (this.joystick.x || this.joystick.y)) {
         dx = this.joystick.x;
@@ -552,7 +588,7 @@ export default class EscenaMundo extends Phaser.Scene {
     v.dir = yo.dir;
     v.mov = yo.mov;
     v.vivo = yo.vivo;
-    v.invisible = !!(this.estado.yo.h && this.estado.yo.h.act > 0);
+    v.invisible = !!(this.estado.yo.h && this.estado.yo.h.act > 0) || this.enPasadizo();
     this.actualizarVista(v, yo, dt);
   }
 
@@ -632,6 +668,10 @@ export default class EscenaMundo extends Phaser.Scene {
     v.spr.setAlpha(fantasma ? 0.45 : v.invisible ? 0.3 : 1);
     v.nombre.setAlpha(fantasma ? 0.6 : v.invisible ? 0.4 : 1);
     v.escudoImg.setVisible(v.escudo && v.spr.visible);
+    const voz = this.enlace.voz;
+    const habla = !!voz && v.spr.visible && voz.hablando(v.id);
+    v.vozImg.setVisible(habla);
+    if (habla) v.vozImg.setPosition(x, y - 21 - v.nombre.height - 1);
     if (v.escudo) v.escudoImg.setPosition(x, y + 4).setDepth(y + 1);
     if (fantasma) v.spr.setY(y + 2 + Math.sin(this.time.now / 300 + v.color) * 1.5);
     const dir = NOMBRE_DIR[v.dir] || 'abajo';
@@ -921,6 +961,7 @@ export default class EscenaMundo extends Phaser.Scene {
     }
     if (!this.relojHud || time - this.relojHud > 100) {
       this.relojHud = time;
+      document.getElementById('hud-mic').classList.toggle('hablando', !!this.enlace.voz && this.enlace.voz.yoHablando());
       const inf = this.estado.yo.inf || 0;
       if (inf !== this.ultimoInf) {
         if (inf > 0) ui.aviso(`¡Un alien crece en tu pecho! Te quedan ${inf} s`, 0);
@@ -928,6 +969,8 @@ export default class EscenaMundo extends Phaser.Scene {
         this.ultimoInf = inf;
       }
       if (ui.minijuegos.id === 'vitales' && ui.minijuegos.abierto) ui.actualizarVitales(this.estado.yo.h);
+      const pz = this.enPasadizo() && !this.enReunion ? PASADIZOS[this.estado.yo.pz] : null;
+      ui.mostrarPasadizo(pz ? pz.nombre : null);
       const sala = salaEn(this.yo.x, this.yo.y);
       if (sala !== this.ultimaSala) {
         this.ultimaSala = sala;

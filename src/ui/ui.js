@@ -261,6 +261,28 @@ export default class UI {
         this.ctrl.accion(b.dataset.accion);
       });
     });
+    // Panel de tareas plegable (en pantallas bajas empieza plegado)
+    let plegado = leer('mm-tareas-plegadas', window.innerHeight < 500 ? '1' : '0') === '1';
+    const aplicarPlegado = () => {
+      $('caja-tareas').classList.toggle('plegada', plegado);
+      $('hud-plegar-icono').textContent = plegado ? '▸' : '▾';
+    };
+    aplicarPlegado();
+    $('hud-plegar').onclick = () => {
+      plegado = !plegado;
+      guardar('mm-tareas-plegadas', plegado ? '1' : '0');
+      aplicarPlegado();
+    };
+    $('hud-libreta').onclick = () => {
+      const escena = this.ctrl.escena;
+      if (escena && escena.enJuego) this.abrirLibreta(escena.casos);
+    };
+    document.querySelectorAll('[data-pasadizo]').forEach((b) => {
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.ctrl.accion(b.dataset.pasadizo);
+      });
+    });
     const sonido = $('hud-sonido');
     sonido.classList.toggle('apagado', !sonidoActivo());
     sonido.onclick = () => sonido.classList.toggle('apagado', !alternarSonido());
@@ -358,22 +380,11 @@ export default class UI {
       if (yo.hechas.has(id)) li.className = 'hecha';
       ul.appendChild(li);
     }
-    // Libreta del detective
-    if (yo.subrol === 'detective' && yo.casos && yo.casos.length) {
-      const nombre = (id) => (this.ctrl.jugadoresPartida.get(id) || {}).nombre || '?';
-      const titulo = document.createElement('li');
-      titulo.className = 'libreta';
-      titulo.textContent = '📓 Libreta';
-      ul.appendChild(titulo);
-      for (const c of yo.casos) {
-        const li = document.createElement('li');
-        li.className = 'libreta';
-        const pistas = c.preguntas.map((p) => `${nombre(p.id)}: ${p.sala}`).join(' · ');
-        li.textContent = `✝ ${nombre(c.victima)} (${c.sala}) ${pistas || '— sin preguntas'}`;
-        li.title = li.textContent;
-        ul.appendChild(li);
-      }
-    }
+    // Libreta del detective: botón con el número de casos
+    const libreta = $('hud-libreta');
+    libreta.hidden = yo.subrol !== 'detective';
+    libreta.textContent = `📓 Libreta (L) · ${(yo.casos || []).length}/3`;
+    if (this.minijuegos.abierto && this.minijuegos.id === 'libreta') this.abrirLibreta(yo.casos);
     $('hud-progreso').style.width = `${Math.round(estado.progreso * 100)}%`;
   }
 
@@ -520,7 +531,7 @@ export default class UI {
     this.dibujarTarjetas();
     this.refrescarBotonesVoto();
     clearInterval(this.tReloj);
-    this.tReloj = setInterval(() => this.tickReunion(), 250);
+    this.tReloj = setInterval(() => this.tickReunion(), 200);
     this.tickReunion();
     $('reunion-entrada').disabled = false;
     $('reunion-entrada').placeholder = vivos.has(miId) ? 'Escribe aquí...' : 'Chat de fantasmas...';
@@ -528,6 +539,8 @@ export default class UI {
 
   tickReunion() {
     if (!this.reunion) return;
+    const voz = this.ctrl.voz;
+    document.querySelectorAll('#reunion-jugadores .tarjeta').forEach((t) => t.classList.toggle('hablando', voz.hablando(t.dataset.id)));
     const pasado = (Date.now() - this.reunion.inicio) / 1000;
     const resta = Math.max(0, Math.ceil(this.reunion.duracion - pasado));
     $('reunion-tiempo').textContent = String(resta);
@@ -554,7 +567,7 @@ export default class UI {
       info.className = 'info';
       const nom = document.createElement('span');
       nom.className = 'nom';
-      nom.textContent = j.nombre + (vivo ? '' : ' ✝');
+      nom.textContent = j.nombre + (r.salieron && r.salieron.has(j.id) ? ' (se fue)' : vivo ? '' : ' ✝');
       if (j.id === r.miId) nom.classList.add('yo');
       if (r.companeros && r.companeros.has(j.id)) nom.classList.add('compa');
       info.appendChild(nom);
@@ -741,6 +754,127 @@ export default class UI {
     this.minijuegos.abrirPanel('foto', 'Foto de la cámara', 'Solo tú la viste. Puedes mostrarla en la siguiente reunión... o guardar el secreto.', (area) => {
       area.appendChild(this.dibujarFoto(foto, jugadores));
     });
+  }
+
+  // Libreta del detective: cada asesinato y a quién se interrogó
+  abrirLibreta(casos = []) {
+    const jug = this.ctrl.jugadoresPartida;
+    const nombre = (id) => (jug.get(id) || {}).nombre || '?';
+    const color = (id) => (jug.get(id) || {}).color || 0;
+    this.minijuegos.abrirPanel('libreta', '📓 Libreta del detective', 'Se anotan los asesinatos ocurridos mientras estás vivo (máx. 3). Pregunta con V junto a alguien.', (area) => {
+      if (!casos.length) {
+        const v = document.createElement('p');
+        v.className = 'libreta-vacia';
+        v.textContent = 'Todavía no hay asesinatos anotados.';
+        area.appendChild(v);
+        return;
+      }
+      casos.forEach((c, i) => {
+        const caso = document.createElement('div');
+        caso.className = 'libreta-caso';
+        const cab = document.createElement('div');
+        cab.className = 'libreta-cabecera';
+        const iv = img(color(c.victima));
+        iv.className = 'muerto';
+        cab.appendChild(iv);
+        const t = document.createElement('div');
+        t.innerHTML = `<b>Caso ${i + 1}: muerte de ${escapar(nombre(c.victima))}</b><span>Ocurrió en: ${escapar(c.sala || '?')} · Preguntas: ${c.preguntas.length}/3</span>`;
+        cab.appendChild(t);
+        caso.appendChild(cab);
+        const lista = document.createElement('div');
+        lista.className = 'libreta-pistas';
+        if (!c.preguntas.length) lista.innerHTML = '<span class="libreta-nada">Aún no interrogaste a nadie por este caso.</span>';
+        for (const p of c.preguntas) {
+          const fila = document.createElement('div');
+          fila.className = 'libreta-pista';
+          fila.appendChild(img(color(p.id)));
+          const txt = document.createElement('span');
+          txt.innerHTML = `<b>${escapar(nombre(p.id))}</b> estaba en <b>${escapar(p.sala)}</b>`;
+          fila.appendChild(txt);
+          lista.appendChild(fila);
+        }
+        caso.appendChild(lista);
+        area.appendChild(caso);
+      });
+    });
+  }
+
+  mostrarPasadizo(lugar) {
+    if (lugar === this.pasadizoActual) return;
+    this.pasadizoActual = lugar;
+    $('hud-pasadizo').hidden = !lugar;
+    if (lugar) $('hud-pasadizo-lugar').textContent = lugar;
+  }
+
+  // ---------- Pantalla completa ----------
+
+  prepararPantallaCompleta(soportado, alternar) {
+    for (const id of ['menu-pantalla', 'hud-pantalla']) {
+      $(id).hidden = !soportado;
+      $(id).onclick = alternar;
+    }
+  }
+
+  marcarPantallaCompleta(activa) {
+    $('hud-pantalla').classList.toggle('activo', activa);
+    $('menu-pantalla').textContent = activa ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+  }
+
+  // ---------- Chat de voz ----------
+
+  actualizarVoz(voz, error) {
+    const disponible = voz.disponible;
+    $('hud-mic').hidden = !disponible;
+    $('sala-voz').hidden = !disponible;
+    $('hud-mic').classList.toggle('activo', voz.micActivo);
+    $('hud-mic').classList.toggle('apagado', !voz.micActivo);
+    $('sala-mic').textContent = voz.micActivo ? '🎤 Micrófono encendido (tocar para apagar)' : '🎤 Activar micrófono';
+    $('sala-mic').classList.toggle('boton-principal', voz.micActivo);
+    if (error) this.aviso(error, 4000);
+    if (!this.vozPreparada) {
+      this.vozPreparada = true;
+      const alternar = () => voz.alternarMic();
+      $('hud-mic').onclick = alternar;
+      $('sala-mic').onclick = alternar;
+    }
+  }
+
+  // Señal de conexión: ms, 'anfitrion' o null (sin red)
+  mostrarPing(valor) {
+    const hud = $('hud-ping');
+    const sala = $('sala-ping');
+    if (valor === null || valor === undefined) {
+      hud.hidden = true;
+      sala.hidden = true;
+      return;
+    }
+    let texto;
+    let clase;
+    if (valor === 'anfitrion') {
+      texto = '● Anfitrión';
+      clase = 'ping-bueno';
+    } else {
+      texto = `● ${valor} ms`;
+      clase = valor < 120 ? 'ping-bueno' : valor < 300 ? 'ping-medio' : 'ping-malo';
+    }
+    hud.hidden = false;
+    hud.textContent = texto;
+    hud.className = `ping ${clase}`;
+    sala.hidden = false;
+    sala.textContent = valor === 'anfitrion' ? 'Tú eres el anfitrión (si sales, la sala se cierra para todos)' : `Señal con el anfitrión: ${valor} ms`;
+  }
+
+  // Alguien se fue durante una reunión
+  marcarSalida(id) {
+    if (!this.reunion) return;
+    const j = this.reunion.jugadores.get(id);
+    this.reunion.vivos.delete(id);
+    this.reunion.salieron = this.reunion.salieron || new Set();
+    this.reunion.salieron.add(id);
+    if (this.reunion.elegido === id) this.reunion.elegido = null;
+    this.mensajeSistema(`${j ? j.nombre : 'Alguien'} salió de la partida.`);
+    this.dibujarTarjetas();
+    this.refrescarBotonesVoto();
   }
 
   // Tableta de signos vitales del médico

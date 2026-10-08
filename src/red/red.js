@@ -68,6 +68,54 @@ export default class Red extends Emisor {
     this.rapido = null;
     this.enPartida = false;
     this.cerrada = false;
+    this.ultimoMensaje = new Map();
+    this.ping = null;
+  }
+
+  // ---------- Señal: ping y detección de desconexiones ----------
+
+  vigilarClientes() {
+    this.vigilancia = setInterval(() => {
+      const ahora = Date.now();
+      for (const [id, c] of this.clientes) {
+        if (ahora - (this.ultimoMensaje.get(id) || ahora) > RED.tiempoCaidaMs) {
+          c.close();
+          this.quitarCliente(id);
+        }
+      }
+    }, 1000);
+  }
+
+  vigilarAnfitrion() {
+    this.ultimoDelAnfitrion = Date.now();
+    this.relojPing = setInterval(() => this.enviarAnfitrion({ t: 'ping', ts: performance.now() }), RED.intervaloPingMs);
+    this.vigilancia = setInterval(() => {
+      if (Date.now() - this.ultimoDelAnfitrion > RED.tiempoCaidaMs) this.perderAnfitrion();
+    }, 1000);
+  }
+
+  // Mensajes de control que no llegan al juego. Devuelve true si se consumió.
+  control(id, d) {
+    if (!d) return false;
+    if (this.esAnfitrion) {
+      this.ultimoMensaje.set(id, Date.now());
+      if (d.t === 'ping') {
+        this.enviar(id, { t: 'pong', ts: d.ts });
+        return true;
+      }
+      return false;
+    }
+    this.ultimoDelAnfitrion = Date.now();
+    if (d.t === 'pong') {
+      this.ping = Math.round(performance.now() - d.ts);
+      this.emit('ping', this.ping);
+      return true;
+    }
+    if (d.t === 'cerrada') {
+      this.emit('cerrada');
+      return true;
+    }
+    return false;
   }
 
   crear(nombre) {
@@ -85,6 +133,7 @@ export default class Red extends Emisor {
         this.peer = peer;
         this.codigo = codigo;
         peer.on('connection', (c) => this.alConectar(c));
+        this.vigilarClientes();
         peer.on('disconnected', () => {
           if (!this.cerrada) peer.reconnect();
         });
@@ -106,7 +155,8 @@ export default class Red extends Emisor {
         else conexion.close();
       });
       conexion.on('data', (d) => {
-        if (this.rapidos.get(conexion.peer) === conexion) this.emit('mensaje', conexion.peer, d);
+        if (this.rapidos.get(conexion.peer) !== conexion || this.control(conexion.peer, d)) return;
+        this.emit('mensaje', conexion.peer, d);
       });
       conexion.on('close', () => {
         if (this.rapidos.get(conexion.peer) === conexion) this.rapidos.delete(conexion.peer);
@@ -118,6 +168,7 @@ export default class Red extends Emisor {
         this.recibirSaludo(conexion, d);
         return;
       }
+      if (this.control(conexion.peer, d)) return;
       if (d && d.t === 'color') {
         this.cambiarColor(conexion.peer, d.color);
         return;
@@ -142,6 +193,7 @@ export default class Red extends Emisor {
       this.jugadores = this.jugadores.filter((j) => j !== bot);
     }
     this.clientes.set(conexion.peer, conexion);
+    this.ultimoMensaje.set(conexion.peer, Date.now());
     let nombre = limpiarNombre(d.nombre);
     if (this.jugadores.some((j) => j.nombre.toLowerCase() === nombre.toLowerCase())) nombre = `${nombre.slice(0, RED.largoNombre - 2)} ${this.jugadores.length + 1}`;
     this.jugadores.push({ id: conexion.peer, nombre, color: colorLibre(this.jugadores) });
@@ -151,6 +203,7 @@ export default class Red extends Emisor {
   quitarCliente(id) {
     if (!this.clientes.has(id)) return;
     this.clientes.delete(id);
+    this.ultimoMensaje.delete(id);
     const r = this.rapidos.get(id);
     if (r) r.close();
     this.rapidos.delete(id);
@@ -200,6 +253,7 @@ export default class Red extends Emisor {
         this.anfitrion = conexion;
         conexion.on('open', () => conexion.send({ t: 'hola', nombre: limpiarNombre(nombre) }));
         conexion.on('data', (d) => {
+          if (this.control(ID_ANFITRION, d)) return;
           if (d.t === 'rechazo') {
             fallar(d.motivo);
             return;
@@ -211,6 +265,7 @@ export default class Red extends Emisor {
               resuelto = true;
               clearTimeout(espera);
               this.abrirCanalRapido(peer);
+              this.vigilarAnfitrion();
               resolver();
             }
             this.emit('lobby', d.jugadores);
@@ -230,7 +285,9 @@ export default class Red extends Emisor {
   abrirCanalRapido(peer) {
     const r = peer.connect(RED.prefijo + this.codigo, { reliable: false, serialization: 'json', metadata: { canal: 'rapido' } });
     r.on('open', () => (this.rapido = r));
-    r.on('data', (d) => this.emit('mensaje', ID_ANFITRION, d));
+    r.on('data', (d) => {
+      if (!this.control(ID_ANFITRION, d)) this.emit('mensaje', ID_ANFITRION, d);
+    });
     r.on('close', () => {
       if (this.rapido === r) this.rapido = null;
     });
@@ -271,9 +328,16 @@ export default class Red extends Emisor {
   cerrar() {
     if (this.cerrada) return;
     this.cerrada = true;
+    clearInterval(this.vigilancia);
+    clearInterval(this.relojPing);
     this.oyentes.clear();
+    const peer = this.peer;
+    // Si el anfitrión se va, avisa a todos para que vuelvan al menú
+    if (this.esAnfitrion && this.clientes.size) {
+      this.enviarATodos({ t: 'cerrada' });
+      setTimeout(() => peer && peer.destroy(), 400);
+    } else if (peer) peer.destroy();
     this.clientes.clear();
     this.rapidos.clear();
-    if (this.peer) this.peer.destroy();
   }
 }

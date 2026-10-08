@@ -62,7 +62,10 @@ export const RED = {
   intentosCodigo: 4,
   esperaConexionMs: 10000,
   intervaloSnapshotMs: 66,
-  intervaloPosicionMs: 50
+  intervaloPosicionMs: 50,
+  intervaloPingMs: 2000,
+  // Sin noticias de alguien durante este tiempo = se fue (aunque cerrara la pestaña de golpe)
+  tiempoCaidaMs: 8000
 };
 
 // Paletas de los personajes: ropa, pelo, pantalón y estilo de peinado.

@@ -23,6 +23,8 @@ De 4 a 10 personas están en una mansión de 13 cuartos (biblioteca, dormitorio,
 | Disfraz (asesino) | C | Botón **C** |
 | Habilidad del rol especial | V | Botón **V** |
 | Mapa | M | Botón ▦ |
+| Libreta del detective | L | Botón 📓 en la tarjeta del rol |
+| Pasadizo (asesino): entrar / cambiar salida / salir | E / A · D / E | Botones del panel |
 
 ## Sala y ajustes
 
@@ -59,6 +61,26 @@ Música de suspenso generada en tiempo real: zumbido grave, viento, notas de caj
 - **Crear sala en línea:** genera un código de 4 letras. Tus amigos entran con **Unirse** o con el enlace `?sala=CODIGO`. El anfitrión puede rellenar con bots y elegir 1 o 2 asesinos.
 
 El anfitrión ejecuta la simulación (no hay servidor propio). La conexión es P2P con el servidor público de PeerJS.
+
+- El HUD muestra la señal (ping) con el anfitrión.
+- Si alguien deja de responder 8 s (aunque cierre la pestaña de golpe), sale de la partida y todos reciben un aviso.
+- Si el anfitrión sale o cierra la pestaña, la sala se cierra y todos vuelven al menú.
+
+### Chat de voz por proximidad
+
+En las salas en línea, el botón 🎤 activa el micrófono (el navegador pide permiso). Reglas:
+
+- **Vivos:** se oyen por cercanía (más bajo a través de paredes). También los oyen los fantasmas cercanos.
+- **Fantasmas:** solo los oyen otros fantasmas, en toda la casa.
+- **Reunión:** solo hablan los vivos y los oyen todos.
+- **Sala de espera y final:** todos se oyen con todos.
+- Un asesino dentro de un pasadizo o invisible no se oye.
+
+El micrófono solo funciona en páginas seguras (**https** o `localhost`). Si lo subes a Netlify o GitHub Pages funciona; con `vite --host` por IP en la red local, no.
+
+### Pantalla completa
+
+En el teléfono, el primer toque pone el juego en pantalla completa y horizontal (los navegadores no permiten hacerlo sin un toque). También hay un botón ⛶ en el menú y en el HUD. En iPhone, Safari no permite la pantalla completa en páginas: hay que usar "Agregar a pantalla de inicio" y abrir el juego desde ese ícono.
 
 ## Desarrollo
 

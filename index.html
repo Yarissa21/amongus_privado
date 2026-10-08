@@ -7,6 +7,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="icon" href="icono.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
@@ -36,7 +38,10 @@
           <button id="menu-unirse" class="boton">Unirse</button>
         </div>
         <p id="menu-estado" class="estado"></p>
-        <button id="menu-ayuda" class="boton boton-sec">¿Cómo se juega?</button>
+        <div class="fila">
+          <button id="menu-ayuda" class="boton boton-sec">¿Cómo se juega?</button>
+          <button id="menu-pantalla" class="boton boton-sec" hidden>⛶ Pantalla completa</button>
+        </div>
       </div>
     </section>
 
@@ -61,6 +66,8 @@
           <tr><td>Disfraz / cambiaformas (asesino)</td><td>C</td></tr>
           <tr><td>Habilidad del rol especial</td><td>V</td></tr>
           <tr><td>Mapa</td><td>M</td></tr>
+          <tr><td>Libreta (detective)</td><td>L</td></tr>
+          <tr><td>Pasadizo: cambiar salida / salir</td><td>A · D / E</td></tr>
         </table>
         <button id="ayuda-cerrar" class="boton boton-principal">Entendido</button>
       </div>
@@ -84,6 +91,11 @@
         </div>
         <p id="sala-espera" class="ayuda-chica" hidden>Esperando a que el anfitrión empiece...</p>
         <p id="sala-estado" class="estado"></p>
+        <p id="sala-ping" class="ayuda-chica" hidden></p>
+        <div id="sala-voz" class="col" hidden>
+          <button id="sala-mic" class="boton boton-sec">🎤 Activar micrófono</button>
+          <p class="ayuda-chica">Voz por cercanía: los vivos se oyen si están cerca · los fantasmas solo entre fantasmas · en la reunión solo hablan los vivos.</p>
+        </div>
         <button id="sala-salir" class="boton boton-sec">Salir</button>
       </div>
     </section>
@@ -91,11 +103,15 @@
     <!-- HUD de la partida -->
     <section id="hud" hidden>
       <div class="hud-arriba">
-        <div class="caja caja-tareas">
-          <div class="tareas-titulo" id="hud-rol">Tareas</div>
+        <div class="caja caja-tareas" id="caja-tareas">
+          <button class="tareas-cabecera" id="hud-plegar" title="Mostrar u ocultar">
+            <span class="tareas-titulo" id="hud-rol">Tareas</span>
+            <span class="plegar" id="hud-plegar-icono">▾</span>
+          </button>
           <div id="hud-rol-especial" class="rol-especial" hidden>
             <b id="hud-rol-nombre"></b>
-            <span id="hud-rol-uso"></span>
+            <span id="hud-rol-uso" class="rol-uso"></span>
+            <button id="hud-libreta" class="mini-boton" hidden>📓 Libreta (L)</button>
           </div>
           <ul id="hud-tareas"></ul>
         </div>
@@ -103,12 +119,23 @@
           <span>Tareas de la casa</span>
           <div class="barra"><div id="hud-progreso"></div></div>
         </div>
+        <span id="hud-ping" class="ping" hidden></span>
+        <button id="hud-mic" class="boton-redondo" title="Micrófono (chat de voz)" hidden>🎤</button>
+        <button id="hud-pantalla" class="boton-redondo" title="Pantalla completa" hidden>⛶</button>
         <button id="hud-mapa" class="boton-redondo" title="Mapa (M)">▦</button>
         <button id="hud-musica" class="boton-redondo" title="Música de suspenso">♫</button>
         <button id="hud-sonido" class="boton-redondo" title="Efectos de sonido">♪</button>
       </div>
       <div id="hud-lugar" class="letrero"></div>
       <div id="hud-aviso" class="aviso" hidden></div>
+      <div id="hud-pasadizo" class="caja panel-pasadizo" hidden>
+        <div class="pasadizo-titulo">Pasadizo secreto · <b id="hud-pasadizo-lugar"></b></div>
+        <div class="fila">
+          <button class="boton boton-sec" data-pasadizo="pzAnterior">◀ A</button>
+          <button class="boton boton-principal" data-pasadizo="pzSalir">Salir (E)</button>
+          <button class="boton boton-sec" data-pasadizo="pzSiguiente">D ▶</button>
+        </div>
+      </div>
       <div class="acciones">
         <button data-accion="habilidad" class="accion accion-habilidad" hidden><span class="tecla">V</span><span class="nombre">Habilidad</span><span class="cd"></span></button>
         <button data-accion="disfraz" class="accion accion-disfraz" hidden><span class="tecla">C</span><span class="nombre">Disfraz</span><span class="cd"></span></button>
