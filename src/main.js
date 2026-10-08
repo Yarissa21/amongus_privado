@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import './estilos.css';
 import { ANCHO, ALTO, ANCHO_MIN, ANCHO_MAX, MAX_JUGADORES, VELOCIDADES, ROLES } from './config.js';
 import SalaLocal from './red/salaLocal.js';
+import Voz from './red/voz.js';
+import { hayLinea } from './mundo/colision.js';
 import EscenaMundo from './escena.js';
 import UI from './ui/ui.js';
 import Partida from './logica/partida.js';
@@ -51,6 +53,7 @@ class Control {
     this.miId = null;
     this.jugadoresPartida = new Map();
     this.ui = new UI(this);
+    this.voz = new Voz((error) => this.ui.actualizarVoz(this.voz, error));
     this.ui.mostrar('menu');
   }
 
@@ -89,6 +92,7 @@ class Control {
     this.miId = sala.miId;
     for (let i = 0; i < Math.min(bots, MAX_JUGADORES - 1); i++) this.agregarBot();
     sala.on('lobby', () => this.ui.mostrarSala(sala));
+    this.ui.mostrarPing(null);
     this.ui.mostrarSala(sala);
   }
 
@@ -107,6 +111,9 @@ class Control {
       if (this.partida) this.partida.quitarJugador(id);
     });
     history.replaceState(null, '', `?sala=${red.codigo}`);
+    this.voz.conectar(red, ID_ANFITRION, (id) => this.volumenVoz(id));
+    red.on('lobby', () => this.voz.sincronizar(red.jugadores));
+    this.ui.mostrarPing('anfitrion');
     this.ui.mostrarSala(red);
   }
 
@@ -128,10 +135,18 @@ class Control {
       this.salir(true);
       this.ui.mostrarMenu('Se perdió la conexión con el anfitrión');
     });
+    red.on('cerrada', () => {
+      this.salir(true);
+      this.ui.mostrarMenu('El anfitrión cerró la sala');
+    });
+    red.on('ping', (ms) => this.ui.mostrarPing(ms));
     this.red = red;
     this.modo = 'cliente';
     await red.unirse(codigo, nombre);
     this.miId = red.miId;
+    this.voz.conectar(red, red.miId, (id) => this.volumenVoz(id));
+    red.on('lobby', () => this.voz.sincronizar(red.jugadores));
+    this.voz.sincronizar(red.jugadores);
     this.ui.mostrarSala(red);
   }
 
@@ -227,12 +242,40 @@ class Control {
   }
 
   salir(silencioso = false) {
+    this.voz.cerrar();
     this.terminarPartidaLocal();
+    this.ui.mostrarPing(null);
     if (this.red) this.red.cerrar();
     this.red = null;
     this.modo = null;
     if (location.search) history.replaceState(null, '', location.pathname);
     if (!silencioso) this.ui.mostrarMenu();
+  }
+
+  // ---------- Chat de voz por proximidad ----------
+
+  // Volumen (0-1) al que escucho a un jugador según las reglas del juego
+  volumenVoz(id) {
+    const escena = this.escena;
+    if (!escena || !escena.enJuego || escena.estado.fase === 'fin') return 1; // sala de espera y final: todos con todos
+    const v = escena.vistas.get(id);
+    if (!v) return 0;
+    // Reunión: solo hablan los vivos y los oye todo el mundo
+    if (escena.enReunion || escena.estado.fase !== 'juego') {
+      const r = this.ui.reunion;
+      return r ? (r.vivos.has(id) ? 1 : 0) : v.vivo ? 1 : 0;
+    }
+    const yo = escena.yo;
+    // Los fantasmas solo se oyen entre fantasmas (en toda la casa)
+    if (!v.presente) return 0;
+    if (!v.vivo) return yo.vivo ? 0 : 1;
+    // Un asesino escondido (pasadizo o invisible) no se oye
+    if (v.invisible) return 0;
+    // Vivos: por proximidad; a través de paredes, más bajo
+    const d = Math.hypot(v.x - yo.x, v.y - yo.y);
+    let vol = d < 50 ? 1 : d > 190 ? 0 : 1 - (d - 50) / 140;
+    if (vol > 0 && !hayLinea(yo.x, yo.y, v.x, v.y)) vol *= 0.3;
+    return vol;
   }
 
   // ---------- Mensajes hacia el jugador local ----------
@@ -318,7 +361,8 @@ class Control {
           this.ui.aviso(`Cámara escondida (${msg.sala}). Aparecerá después de la votación.`, 4000);
         } else if (msg.tipo === 'salio') {
           const j = this.jugadoresPartida.get(msg.id);
-          if (j) this.ui.aviso(`${j.nombre} se desconectó`, 3000);
+          if (j) this.ui.aviso(`${j.nombre} salió de la partida`, 4000);
+          this.ui.marcarSalida(msg.id);
         }
         break;
       case 'reunion':
@@ -355,5 +399,43 @@ class Control {
 }
 
 const control = new Control();
-juego.registry.set('enlace', { enviar: (m, r) => control.enviar(m, r), ui: control.ui });
+
+// ---------- Pantalla completa ----------
+const raiz = document.documentElement;
+const pedirPantalla = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
+const salirPantalla = document.exitFullscreen || document.webkitExitFullscreen;
+const enPantallaCompleta = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+function entrarPantallaCompleta() {
+  if (!pedirPantalla || enPantallaCompleta()) return;
+  try {
+    const promesa = pedirPantalla.call(raiz, { navigationUI: 'hide' });
+    const girar = () => {
+      const o = window.screen && window.screen.orientation;
+      if (o && o.lock) o.lock('landscape').catch(() => {});
+    };
+    if (promesa && promesa.then) promesa.then(girar).catch(() => {});
+    else girar();
+  } catch {
+    /* el navegador no lo permite */
+  }
+}
+
+function alternarPantallaCompleta() {
+  if (enPantallaCompleta()) salirPantalla && salirPantalla.call(document);
+  else entrarPantallaCompleta();
+}
+
+control.ui.prepararPantallaCompleta(!!pedirPantalla, alternarPantallaCompleta);
+document.addEventListener('fullscreenchange', () => control.ui.marcarPantallaCompleta(enPantallaCompleta()));
+document.addEventListener('webkitfullscreenchange', () => control.ui.marcarPantallaCompleta(enPantallaCompleta()));
+// En el teléfono, el primer toque pone el juego en pantalla completa (los navegadores exigen un toque)
+if (window.matchMedia('(pointer: coarse)').matches) {
+  document.addEventListener('pointerdown', entrarPantallaCompleta, { once: true, capture: true });
+}
+// Si el anfitrión cierra la pestaña, avisa a todos antes de irse
+window.addEventListener('beforeunload', () => {
+  if (control.red && control.red.esAnfitrion && control.red.enviarATodos) control.red.enviarATodos({ t: 'cerrada' });
+});
+juego.registry.set('enlace', { enviar: (m, r) => control.enviar(m, r), ui: control.ui, voz: control.voz });
 if (import.meta.env.DEV) window.control = control;

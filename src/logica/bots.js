@@ -52,8 +52,8 @@ export default class Bots {
   }
 
   puedeVer(j, otro) {
-    // Un fantasma invisible solo lo ve su cómplice
-    if (otro.invisible > 0 && j.vivo && !(j.rol === 'asesino' && otro.rol === 'asesino')) return false;
+    // Un asesino invisible o dentro de un pasadizo solo lo ve su cómplice
+    if (this.partida.oculto(otro) && j.vivo && !(j.rol === 'asesino' && otro.rol === 'asesino')) return false;
     return dist(j, otro) <= this.vision(j) && hayLinea(j.x, j.y, otro.x, otro.y);
   }
 
@@ -153,8 +153,15 @@ export default class Bots {
         e.alEsperar = () => p.recibir(j.id, { t: 'arreglar' });
         break;
       case 'pasadizo':
-        p.recibir(j.id, { t: 'pasadizo', i: meta.i });
-        e.espera = 0.6;
+        // Entra, avanza una o dos salidas y sale
+        p.recibir(j.id, { t: 'pasadizo', accion: 'entrar', i: meta.i });
+        e.espera = 0.8;
+        e.alEsperar = () => {
+          p.recibir(j.id, { t: 'pasadizo', accion: 'mover', dir: 1 });
+          if (Math.random() < 0.4) p.recibir(j.id, { t: 'pasadizo', accion: 'mover', dir: 1 });
+          e.espera = 0.8;
+          e.alEsperar = () => p.recibir(j.id, { t: 'pasadizo', accion: 'salir' });
+        };
         break;
       default:
         e.espera = 0.5 + Math.random() * 2.5;
