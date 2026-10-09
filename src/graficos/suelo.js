@@ -9,7 +9,8 @@ const PISOS = {
   r: { base: '#dcb488', linea: '#b88e64', luz: '#ecc89c' },
   '.': { base: '#b47c4c', linea: '#8e5c34', luz: '#c89460' },
   c: { base: '#cc9a64', linea: '#a87848', luz: '#e0b078' },
-  e: { base: '#8a5a38', linea: '#6a4028', luz: '#a06c44' }
+  e: { base: '#8a5a38', linea: '#6a4028', luz: '#a06c44' },
+  o: { base: '#e0b060', linea: '#b88838', luz: '#f0c880' }
 };
 
 const PAPEL = {
@@ -28,8 +29,43 @@ const PAPEL = {
   l: { base: '#d8e8f0', raya: '#c0d4e0' },
   n: { base: '#3a6a58', raya: '#2e5848' },
   i: { base: '#c8f0d0', raya: '#a8e0b8' },
-  x: { base: '#9a9aa4', raya: '#86868f' }
+  x: { base: '#9a9aa4', raya: '#86868f' },
+  o: { base: '#3a4a7a', raya: '#2e3c68' },
+  z: { base: '#5a7a4a', raya: '#4a6a3a' },
+  q: { base: '#7a6a5a', raya: '#6a5a4a' }
 };
+
+function pano(ctx, x, y, tx, ty) {
+  px(ctx, '#2e7a4a', x, y, T, T);
+  for (let k = 0; k < 3; k++) {
+    const ix = Math.floor(hash(tx * 3 + k, ty) * 15);
+    const iy = Math.floor(hash(ty * 5 + k, tx) * 15);
+    px(ctx, '#368a54', x + ix, y + iy, 1, 1);
+  }
+}
+
+function piedra(ctx, x, y, tx, ty) {
+  px(ctx, '#8a7e70', x, y, T, T);
+  const off = ty % 2 ? 4 : 0;
+  px(ctx, '#6e6458', x, y + 7, T, 1);
+  px(ctx, '#6e6458', x, y + 15, T, 1);
+  px(ctx, '#6e6458', x + ((8 + off) % T), y, 1, 7);
+  px(ctx, '#6e6458', x + ((2 + off) % T), y + 8, 1, 7);
+  px(ctx, '#a09484', x + 1, y + 1, 4, 1);
+}
+
+function tierra(ctx, x, y, tx, ty) {
+  px(ctx, '#8a7050', x, y, T, T);
+  for (let k = 0; k < 4; k++) {
+    const ix = Math.floor(hash(tx * 7 + k, ty) * 15);
+    const iy = Math.floor(hash(ty * 3 + k, tx * 2) * 15);
+    px(ctx, k % 2 ? '#74603e' : '#9a8060', x + ix, y + iy, 2, 1);
+  }
+  if (hash(tx, ty) < 0.15) {
+    px(ctx, '#5a8a40', x + 5, y + 9, 1, 2);
+    px(ctx, '#5a8a40', x + 7, y + 8, 1, 3);
+  }
+}
 
 function goma(ctx, x, y, tx, ty) {
   const colores = ['#f07070', '#70b0f0', '#f8d050', '#78d078'];
@@ -177,7 +213,7 @@ function muroFrente(ctx, x, y, tx, ty, debajo) {
     px(ctx, papel.base, x, y + 3, T, 13);
     for (let k = 0; k < 4; k++) px(ctx, papel.raya, x, y + 5 + k * 3, T, 1);
     px(ctx, '#8a6a4a', x, y + 14, T, 2);
-    if (tx % 4 === 2 && !(tx >= 20 && tx <= 25) && !(tx >= 51 && tx <= 58)) {
+    if (tx % 4 === 2 && !(tx >= 20 && tx <= 25) && !(tx >= 51 && tx <= 58) && !(tx >= 70 && tx <= 73)) {
       px(ctx, '#ffffff', x + 3, y + 4, 10, 8);
       px(ctx, '#88b8e0', x + 4, y + 5, 8, 6);
       px(ctx, '#c4e0f4', x + 4, y + 5, 3, 2);
@@ -227,7 +263,8 @@ const CUADROS = [
   [3, 9], [10, 9], [17, 9], [27, 9], [34, 9], [42, 9], [47, 9], [58, 9],
   [6, 0], [19, 0], [26, 0], [36, 0], [50, 0], [56, 0],
   [26, 13], [34, 13], [41, 13], [19, 13], [51, 13], [59, 13],
-  [11, 25], [19, 25], [26, 25], [34, 25], [50, 25]
+  [11, 25], [19, 25], [26, 25], [34, 25], [50, 25],
+  [66, 9], [76, 9], [68, 0], [77, 0], [67, 13], [77, 13], [67, 25], [76, 25]
 ];
 
 export function dibujarSuelo() {
@@ -243,6 +280,7 @@ export function dibujarSuelo() {
         case '.':
         case 'c':
         case 'e':
+        case 'o':
           madera(ctx, x, y, PISOS[c], ty);
           break;
         case 'j':
@@ -262,6 +300,15 @@ export function dibujarSuelo() {
           break;
         case 'L':
           agua(ctx, x, y, tx, ty);
+          break;
+        case 'z':
+          pano(ctx, x, y, tx, ty);
+          break;
+        case 'q':
+          piedra(ctx, x, y, tx, ty);
+          break;
+        case 't':
+          tierra(ctx, x, y, tx, ty);
           break;
         case 'b':
           azulejo(ctx, x, y, '#e8f4fa', '#cce6f2', '#b0d0e0');

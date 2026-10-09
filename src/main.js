@@ -7,9 +7,9 @@ import { hayLinea } from './mundo/colision.js';
 import EscenaMundo from './escena.js';
 import UI from './ui/ui.js';
 import Partida from './logica/partida.js';
-import { NOMBRES_BOT } from './logica/bots.js';
+import { NOMBRES_BOT, GENERO_BOT } from './logica/bots.js';
 import Red, { ID_ANFITRION, colorLibre, limpiarNombre } from './red/red.js';
-import { sonar } from './ui/sonido.js';
+import { sonar, contextoAudio } from './ui/sonido.js';
 import { iniciarMusica, detenerMusica, musicaReunion } from './ui/musica.js';
 
 const juego = new Phaser.Game({
@@ -86,7 +86,7 @@ class Control {
   // Con bots se usa una sala local: mismos ajustes que en línea, pero sin red.
   jugarSolo(nombre, bots) {
     this.salir(true);
-    const sala = new SalaLocal(limpiarNombre(nombre));
+    const sala = new SalaLocal(limpiarNombre(nombre), this.ui.generoPreferido());
     this.red = sala;
     this.modo = 'solo';
     this.miId = sala.miId;
@@ -99,12 +99,16 @@ class Control {
   async crearSala(nombre) {
     this.salir(true);
     const red = new Red();
-    await red.crear(nombre);
+    await red.crear(nombre, this.ui.generoPreferido());
     this.red = red;
     this.modo = 'anfitrion';
     this.miId = ID_ANFITRION;
     red.on('lobby', () => this.ui.mostrarSala(red));
     red.on('mensaje', (id, d) => {
+      if (d && d.t === 'vozRelevo') {
+        this.voz.relevar(id, d.con);
+        return;
+      }
       if (this.partida) this.partida.recibir(id, d);
     });
     red.on('salio', (id) => {
@@ -142,7 +146,7 @@ class Control {
     red.on('ping', (ms) => this.ui.mostrarPing(ms));
     this.red = red;
     this.modo = 'cliente';
-    await red.unirse(codigo, nombre);
+    await red.unirse(codigo, nombre, this.ui.generoPreferido());
     this.miId = red.miId;
     this.voz.conectar(red, red.miId, (id) => this.volumenVoz(id));
     red.on('lobby', () => this.voz.sincronizar(red.jugadores));
@@ -154,7 +158,7 @@ class Control {
     const red = this.red;
     if (!red || !red.esAnfitrion || red.jugadores.length >= MAX_JUGADORES) return;
     const [nombre] = nombresBot(red.jugadores.map((j) => j.nombre), 1);
-    red.jugadores.push({ id: `bot-${Date.now()}-${Math.floor(Math.random() * 1e4)}`, nombre: nombre || `Bot ${red.jugadores.length}`, color: colorLibre(red.jugadores), bot: true });
+    red.jugadores.push({ id: `bot-${Date.now()}-${Math.floor(Math.random() * 1e4)}`, nombre: nombre || `Bot ${red.jugadores.length}`, color: colorLibre(red.jugadores), genero: GENERO_BOT[nombre] || (Math.random() < 0.5 ? 'h' : 'm'), bot: true });
     red.enviarLobby();
   }
 
@@ -170,7 +174,7 @@ class Control {
   alternarAsesinos() {
     const red = this.red;
     if (!red || !red.esAnfitrion) return;
-    red.config.asesinos = red.config.asesinos === 1 ? 2 : 1;
+    red.config.asesinos = (red.config.asesinos % 3) + 1;
     red.enviarLobby();
   }
 
@@ -273,8 +277,8 @@ class Control {
     if (v.invisible) return 0;
     // Vivos: por proximidad; a través de paredes, más bajo
     const d = Math.hypot(v.x - yo.x, v.y - yo.y);
-    let vol = d < 50 ? 1 : d > 190 ? 0 : 1 - (d - 50) / 140;
-    if (vol > 0 && !hayLinea(yo.x, yo.y, v.x, v.y)) vol *= 0.3;
+    let vol = d < 70 ? 1 : d > 240 ? 0 : 1 - (d - 70) / 170;
+    if (vol > 0 && !hayLinea(yo.x, yo.y, v.x, v.y)) vol *= 0.4;
     return vol;
   }
 
@@ -399,6 +403,11 @@ class Control {
 }
 
 const control = new Control();
+
+// El navegador pausa el audio hasta que hay un toque: se reanuda en cada interacción
+for (const evento of ['pointerdown', 'keydown', 'touchend']) {
+  document.addEventListener(evento, () => contextoAudio(), { capture: true, passive: true });
+}
 
 // ---------- Pantalla completa ----------
 const raiz = document.documentElement;

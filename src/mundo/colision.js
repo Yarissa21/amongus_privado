@@ -50,7 +50,17 @@ export const TIPOS_MUEBLE = {
   perchero: { w: 16, h: 28, solido: [3, 20, 10, 8] },
   mesaPlantas: { w: 48, h: 24, solido: [0, 6, 48, 16] },
   auto: { w: 48, h: 32, solido: [0, 6, 48, 24] },
-  mesaTrabajo: { w: 48, h: 24, solido: [0, 6, 48, 18] }
+  mesaTrabajo: { w: 48, h: 24, solido: [0, 6, 48, 18] },
+  tocadiscos: { w: 32, h: 24, solido: [0, 8, 32, 16] },
+  arpa: { w: 24, h: 40, solido: [2, 26, 20, 14] },
+  diana: { w: 16, h: 24, solido: [3, 16, 10, 8] },
+  barra: { w: 48, h: 24, solido: [0, 6, 48, 18] },
+  mesaBillar: { w: 64, h: 32, solido: [0, 4, 64, 26] },
+  estanteVino: { w: 32, h: 32, solido: [0, 6, 32, 26] },
+  barril: { w: 16, h: 24, solido: [1, 8, 14, 16] },
+  lapida: { w: 16, h: 16, solido: [2, 6, 12, 10] },
+  fuente: { w: 48, h: 40, solido: [2, 14, 44, 24] },
+  arbolSeco: { w: 32, h: 48, solido: [11, 36, 10, 10] }
 };
 
 const SOLIDOS = MUEBLES.filter((m) => TIPOS_MUEBLE[m.tipo].solido).map((m) => {

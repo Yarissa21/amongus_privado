@@ -1,4 +1,4 @@
-import { COLORES } from '../config.js';
+import { paletaAspecto } from '../config.js';
 import { lienzo, px, contornear, oscurecer, aclarar } from './pixel.js';
 
 export const ANCHO_PJ = 16;
@@ -14,6 +14,10 @@ const ZAPATO = '#4a3030';
 function piernas(ctx, ox, oy, pal, dir, paso) {
   const pan = pal.pantalon;
   const panS = oscurecer(pan, 0.25);
+  if (pal.falda) {
+    falda(ctx, ox, oy, pal, dir, paso);
+    return;
+  }
   if (dir === 'lado') {
     if (paso === 0) {
       px(ctx, pan, ox + 6, oy + 17, 4, 3);
@@ -34,6 +38,31 @@ function piernas(ctx, ox, oy, pal, dir, paso) {
   px(ctx, panS, ox + 8, oy + 17, 3, 3 - der);
   px(ctx, ZAPATO, ox + 5, oy + 20 - izq, 3, 1);
   px(ctx, ZAPATO, ox + 8, oy + 20 - der, 3, 1);
+}
+
+// Falda con piernas a la vista
+function falda(ctx, ox, oy, pal, dir, paso) {
+  const tela = pal.pantalon;
+  const telaS = oscurecer(tela, 0.25);
+  if (dir === 'lado') {
+    const a = paso === 0 ? 0 : 1;
+    px(ctx, PIEL, ox + 6 - a, oy + 19, 2, 1);
+    px(ctx, PIEL_S, ox + 8 + a, oy + 19, 2, 1);
+    px(ctx, ZAPATO, ox + 5 - a, oy + 20, 3, 1);
+    px(ctx, ZAPATO, ox + 8 + a, oy + 20, 3, 1);
+    px(ctx, tela, ox + 5, oy + 17, 6, 2);
+    px(ctx, telaS, ox + 5, oy + 18, 6, 1);
+    return;
+  }
+  const izq = paso === 1 ? 1 : 0;
+  const der = paso === 2 ? 1 : 0;
+  px(ctx, PIEL, ox + 5, oy + 19 - izq, 2, 1);
+  px(ctx, PIEL_S, ox + 9, oy + 19 - der, 2, 1);
+  px(ctx, ZAPATO, ox + 5, oy + 20 - izq, 3, 1);
+  px(ctx, ZAPATO, ox + 8, oy + 20 - der, 3, 1);
+  px(ctx, tela, ox + 4, oy + 17, 8, 2);
+  px(ctx, telaS, ox + 10, oy + 17, 2, 2);
+  px(ctx, telaS, ox + 4, oy + 18, 8, 1);
 }
 
 function cuerpo(ctx, ox, oy, pal, dir, paso) {
@@ -161,7 +190,7 @@ export function dibujarCuadro(ctx, ox, oy, pal, dir, paso) {
 
 // Hoja de 9 cuadros para un color.
 export function hojaPersonaje(indice) {
-  const pal = COLORES[indice % COLORES.length];
+  const pal = paletaAspecto(indice);
   const { canvas, ctx } = lienzo(ANCHO_PJ * 9, ALTO_PJ);
   DIRS.forEach((dir, d) => {
     for (let paso = 0; paso < 3; paso++) {
@@ -176,7 +205,7 @@ export function hojaPersonaje(indice) {
 
 // Retrato (cara de frente) para la interfaz HTML.
 export function retrato(indice, escala = 4) {
-  const pal = COLORES[indice % COLORES.length];
+  const pal = paletaAspecto(indice);
   const cuadro = lienzo(ANCHO_PJ, ALTO_PJ);
   dibujarCuadro(cuadro.ctx, 0, 0, pal, 'abajo', 0);
   const { canvas, ctx } = lienzo(ANCHO_PJ * escala, ALTO_PJ * escala);
@@ -186,7 +215,7 @@ export function retrato(indice, escala = 4) {
 
 // Cuerpo tirado en el suelo, con charco.
 export function hojaCuerpo(indice) {
-  const pal = COLORES[indice % COLORES.length];
+  const pal = paletaAspecto(indice);
   const { canvas, ctx } = lienzo(28, 18);
   ctx.fillStyle = '#9a1c24';
   ctx.beginPath();

@@ -118,17 +118,17 @@ export default class Red extends Emisor {
     return false;
   }
 
-  crear(nombre) {
+  crear(nombre, genero = 'h') {
     this.esAnfitrion = true;
     this.miId = ID_ANFITRION;
-    this.jugadores = [{ id: ID_ANFITRION, nombre: limpiarNombre(nombre), color: 0 }];
+    this.jugadores = [{ id: ID_ANFITRION, nombre: limpiarNombre(nombre), color: 0, genero }];
     return this.abrirAnfitrion(RED.intentosCodigo);
   }
 
   abrirAnfitrion(intentos) {
     return new Promise((resolver, rechazar) => {
       const codigo = generarCodigo();
-      const peer = new Peer(RED.prefijo + codigo, { debug: 0 });
+      const peer = new Peer(RED.prefijo + codigo, { debug: 0, config: { iceServers: RED.ice } });
       peer.on('open', () => {
         this.peer = peer;
         this.codigo = codigo;
@@ -173,6 +173,10 @@ export default class Red extends Emisor {
         this.cambiarColor(conexion.peer, d.color);
         return;
       }
+      if (d && d.t === 'genero') {
+        this.cambiarGenero(conexion.peer, d.genero);
+        return;
+      }
       this.emit('mensaje', conexion.peer, d);
     });
     conexion.on('close', () => this.quitarCliente(conexion.peer));
@@ -196,7 +200,7 @@ export default class Red extends Emisor {
     this.ultimoMensaje.set(conexion.peer, Date.now());
     let nombre = limpiarNombre(d.nombre);
     if (this.jugadores.some((j) => j.nombre.toLowerCase() === nombre.toLowerCase())) nombre = `${nombre.slice(0, RED.largoNombre - 2)} ${this.jugadores.length + 1}`;
-    this.jugadores.push({ id: conexion.peer, nombre, color: colorLibre(this.jugadores) });
+    this.jugadores.push({ id: conexion.peer, nombre, color: colorLibre(this.jugadores), genero: d.genero === 'm' ? 'm' : 'h' });
     this.enviarLobby();
   }
 
@@ -222,6 +226,19 @@ export default class Red extends Emisor {
     this.enviarLobby();
   }
 
+  cambiarGenero(id, genero) {
+    if (this.enPartida) return;
+    const j = this.jugadores.find((x) => x.id === id);
+    if (!j) return;
+    j.genero = genero === 'm' ? 'm' : 'h';
+    this.enviarLobby();
+  }
+
+  elegirGenero(genero) {
+    if (this.esAnfitrion) this.cambiarGenero(this.miId, genero);
+    else this.enviarAnfitrion({ t: 'genero', genero });
+  }
+
   elegirColor(color) {
     if (this.esAnfitrion) this.cambiarColor(this.miId, color);
     else this.enviarAnfitrion({ t: 'color', color });
@@ -232,7 +249,7 @@ export default class Red extends Emisor {
     this.emit('lobby', this.jugadores);
   }
 
-  unirse(codigo, nombre) {
+  unirse(codigo, nombre, genero = 'h') {
     this.esAnfitrion = false;
     this.codigo = String(codigo || '').toUpperCase().trim();
     return new Promise((resolver, rechazar) => {
@@ -245,13 +262,13 @@ export default class Red extends Emisor {
         rechazar(new Error(texto));
       };
       const espera = setTimeout(() => fallar('No se encontró la sala'), RED.esperaConexionMs);
-      const peer = new Peer({ debug: 0 });
+      const peer = new Peer({ debug: 0, config: { iceServers: RED.ice } });
       this.peer = peer;
       peer.on('open', (id) => {
         this.miId = id;
         const conexion = peer.connect(RED.prefijo + this.codigo, { reliable: true, serialization: 'json' });
         this.anfitrion = conexion;
-        conexion.on('open', () => conexion.send({ t: 'hola', nombre: limpiarNombre(nombre) }));
+        conexion.on('open', () => conexion.send({ t: 'hola', nombre: limpiarNombre(nombre), genero }));
         conexion.on('data', (d) => {
           if (this.control(ID_ANFITRION, d)) return;
           if (d.t === 'rechazo') {

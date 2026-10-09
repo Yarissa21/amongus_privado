@@ -1,4 +1,4 @@
-import { TIEMPOS, DISTANCIA, TAREAS_POR_JUGADOR, RED, ROLES, VELOCIDADES, configInicial } from '../config.js';
+import { TIEMPOS, DISTANCIA, TAREAS_POR_JUGADOR, RED, ROLES, VELOCIDADES, configInicial, aspecto } from '../config.js';
 import { TAREAS, PASADIZOS, FUSIBLES, MESA, ASIENTOS, puntoInicio, salaEn } from '../mundo/mapa.js';
 import { hayLinea } from '../mundo/colision.js';
 import Bots from './bots.js';
@@ -47,6 +47,7 @@ export default class Partida {
           id: j.id,
           nombre: j.nombre,
           color: j.color,
+          genero: j.genero === 'm' ? 'm' : 'h',
           bot: !!j.bot,
           rol: 'inocente',
           subrol: null,
@@ -89,7 +90,7 @@ export default class Partida {
 
   iniciar() {
     const lista = barajar(this.lista);
-    const maxAsesinos = lista.length >= 7 ? 2 : 1;
+    const maxAsesinos = lista.length >= 12 ? 3 : lista.length >= 7 ? 2 : 1;
     const n = Math.max(1, Math.min(this.numAsesinos, maxAsesinos));
     lista.slice(0, n).forEach((j) => (j.rol = 'asesino'));
     // Roles especiales: cada jugador recibe como mucho uno de su equipo y cada rol sale una sola vez
@@ -108,7 +109,7 @@ export default class Partida {
       j.tareas = barajar(TAREAS).slice(0, TAREAS_POR_JUGADOR).map((t) => t.id);
       Object.assign(j, puntoInicio(i, this.jugadores.size));
     });
-    const publico = this.lista.map((j) => ({ id: j.id, nombre: j.nombre, color: j.color }));
+    const publico = this.lista.map((j) => ({ id: j.id, nombre: j.nombre, color: j.color, genero: j.genero, aspecto: aspecto(j) }));
     const asesinos = this.lista.filter((j) => j.rol === 'asesino').map((j) => j.id);
     for (const j of this.lista) {
       this.enviar(j.id, {
@@ -516,7 +517,7 @@ export default class Partida {
     }
     if (expulsado) expulsado.vivo = false;
     this.fase = 'resultado';
-    this.reunion.tiempo = TIEMPOS.resultado + (forzado ? 2 : 0);
+    this.reunion.tiempo = (expulsado ? TIEMPOS.expulsion : TIEMPOS.resultado) + (forzado ? 2 : 0);
     this.anunciar({
       t: 'resultado',
       votos: [...this.reunion.votos],

@@ -549,6 +549,114 @@ const DIBUJOS = {
     px(ctx, '#d84848', 16, 4, 5, 2);
     px(ctx, '#f0d060', 26, 3, 2, 5);
     px(ctx, '#d84848', 34, 11, 6, 2);
+  },
+  tocadiscos(ctx) {
+    px(ctx, M.osc, 1, 10, 30, 13);
+    px(ctx, M.base, 2, 11, 28, 4);
+    px(ctx, M.cla, 1, 10, 30, 1);
+    px(ctx, '#3a2a20', 3, 16, 26, 5);
+    circulo(ctx, '#202024', 12, 6, 6);
+    circulo(ctx, '#d84848', 12, 6, 2);
+    px(ctx, '#c0c0c8', 22, 2, 2, 8);
+    px(ctx, '#c0c0c8', 18, 8, 5, 1);
+    px(ctx, '#e8c050', 26, 4, 3, 3);
+  },
+  arpa(ctx) {
+    px(ctx, '#d8a840', 3, 2, 4, 34);
+    px(ctx, '#f0c860', 3, 2, 2, 34);
+    px(ctx, '#d8a840', 5, 2, 16, 4);
+    px(ctx, '#d8a840', 17, 6, 4, 26);
+    for (let i = 0; i < 5; i++) px(ctx, '#f8f0d0', 8 + i * 2, 6, 1, 26 - i * 3);
+    px(ctx, M.osc, 2, 34, 20, 5);
+  },
+  diana(ctx) {
+    px(ctx, M.osc, 7, 12, 2, 11);
+    px(ctx, M.osc, 3, 21, 10, 2);
+    circulo(ctx, '#202024', 8, 7, 6);
+    circulo(ctx, '#f0e8c8', 8, 7, 5);
+    circulo(ctx, '#d83c3c', 8, 7, 3);
+    circulo(ctx, '#2e9a48', 8, 7, 1.5);
+    px(ctx, '#f0d050', 10, 4, 3, 1);
+  },
+  barra(ctx) {
+    px(ctx, M.osc, 1, 10, 46, 13);
+    px(ctx, M.cla, 1, 8, 46, 3);
+    for (let i = 0; i < 4; i++) px(ctx, M.base, 4 + i * 11, 13, 8, 8);
+    px(ctx, '#8ad0f0', 8, 2, 3, 6);
+    px(ctx, '#d84848', 20, 1, 4, 7);
+    px(ctx, '#f0d050', 34, 3, 3, 5);
+  },
+  mesaBillar(ctx) {
+    px(ctx, '#6a3a1a', 1, 2, 62, 26);
+    px(ctx, '#2e7a4a', 4, 5, 56, 19);
+    px(ctx, '#3a9a5a', 4, 5, 56, 2);
+    for (const [x, y] of [[4, 5], [31, 4], [58, 5], [4, 22], [31, 23], [58, 22]]) px(ctx, '#101014', x, y, 2, 2);
+    circulo(ctx, '#ffffff', 18, 14, 2);
+    circulo(ctx, '#d83c3c', 40, 12, 2);
+    circulo(ctx, '#f0c820', 44, 15, 2);
+    circulo(ctx, '#3858d8', 40, 17, 2);
+    px(ctx, '#c8a060', 10, 10, 6, 1);
+    px(ctx, '#6a3a1a', 3, 28, 4, 3);
+    px(ctx, '#6a3a1a', 57, 28, 4, 3);
+  },
+  estanteVino(ctx) {
+    px(ctx, M.osc, 1, 1, 30, 30);
+    for (let fila = 0; fila < 4; fila++) {
+      for (let i = 0; i < 6; i++) {
+        const x = 3 + i * 4.5;
+        const y = 4 + fila * 7;
+        circulo(ctx, '#1a1418', x + 2, y + 2, 2);
+        if ((fila + i) % 3) circulo(ctx, fila % 2 ? '#7a1a2a' : '#3a5a2a', x + 2, y + 2, 1.5);
+      }
+    }
+  },
+  barril(ctx) {
+    px(ctx, '#8a5a2a', 2, 6, 12, 17);
+    px(ctx, '#a06c34', 3, 6, 4, 17);
+    px(ctx, '#6a4020', 2, 9, 12, 1);
+    px(ctx, '#6a4020', 2, 19, 12, 1);
+    px(ctx, '#b07a40', 3, 3, 10, 4);
+    px(ctx, '#d0a060', 5, 4, 6, 2);
+  },
+  lapida(ctx) {
+    px(ctx, '#9898a0', 3, 3, 10, 12);
+    px(ctx, '#9898a0', 4, 2, 8, 1);
+    px(ctx, '#b8b8c0', 4, 3, 3, 10);
+    px(ctx, '#6a6a74', 7, 5, 2, 6);
+    px(ctx, '#6a6a74', 5, 7, 6, 2);
+    px(ctx, '#5a8a40', 2, 13, 4, 2);
+    px(ctx, '#5a8a40', 11, 14, 3, 1);
+  },
+  fuente(ctx, w, h, r, cuadro) {
+    ctx.fillStyle = '#a8a8b0';
+    ctx.beginPath();
+    ctx.ellipse(24, 28, 22, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5a9ad8';
+    ctx.beginPath();
+    ctx.ellipse(24, 27, 18, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    px(ctx, '#8ec0f0', 14, 25, 6, 1);
+    px(ctx, '#a8a8b0', 21, 8, 6, 19);
+    px(ctx, '#c8c8d0', 22, 8, 2, 19);
+    ctx.fillStyle = '#a8a8b0';
+    ctx.beginPath();
+    ctx.ellipse(24, 9, 8, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const f = cuadro || 0;
+    px(ctx, '#c8e8ff', 23, 1 + f, 2, 6);
+    px(ctx, '#a8d8f8', 18 - f, 4, 2, 3);
+    px(ctx, '#a8d8f8', 28 + f, 4, 2, 3);
+  },
+  arbolSeco(ctx) {
+    px(ctx, '#5a4030', 13, 14, 6, 32);
+    px(ctx, '#4a3020', 13, 14, 2, 32);
+    px(ctx, '#5a4030', 6, 10, 8, 2);
+    px(ctx, '#5a4030', 5, 4, 2, 7);
+    px(ctx, '#5a4030', 18, 8, 9, 2);
+    px(ctx, '#5a4030', 25, 2, 2, 7);
+    px(ctx, '#5a4030', 15, 2, 2, 12);
+    px(ctx, '#5a4030', 10, 18, 4, 2);
   }
 };
 
@@ -556,7 +664,7 @@ const DIBUJOS = {
 export function dibujarMuebles() {
   const texturas = {};
   for (const [tipo, def] of Object.entries(TIPOS_MUEBLE)) {
-    const cuadros = tipo === 'chimenea' || tipo === 'estufa' ? 2 : 1;
+    const cuadros = tipo === 'chimenea' || tipo === 'estufa' || tipo === 'fuente' ? 2 : 1;
     texturas[tipo] = [];
     for (let k = 0; k < cuadros; k++) {
       const { canvas, ctx } = lienzo(def.w, def.h);

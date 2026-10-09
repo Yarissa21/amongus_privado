@@ -11,7 +11,12 @@ const normalizar = (t) =>
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
 
-export const NOMBRES_BOT = ['Ana', 'Luis', 'Sofi', 'Pablo', 'Vale', 'Diego', 'Majo', 'Hugo', 'Lupe', 'Toño', 'Rita', 'Beto'];
+// Nombres de bots y su género (para el sprite)
+export const GENERO_BOT = {
+  Ana: 'm', Luis: 'h', Sofi: 'm', Pablo: 'h', Vale: 'm', Diego: 'h', Majo: 'm', Hugo: 'h',
+  Lupe: 'm', Toño: 'h', Rita: 'm', Beto: 'h', Caro: 'm', Nico: 'h', Elena: 'm', Memo: 'h'
+};
+export const NOMBRES_BOT = Object.keys(GENERO_BOT);
 
 const SALAS_INTERIORES = SALAS.filter((s) => s.nombre !== 'Pasillo');
 const ARTICULO = { Biblioteca: 'la', Dormitorio: 'el', Baño: 'el', Pasillo: 'el', Cocina: 'la', Sala: 'la', Comedor: 'el', Jardín: 'el' };

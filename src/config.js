@@ -33,6 +33,7 @@ export const TIEMPOS = {
   reunion: 75,
   esperaVoto: 5,
   resultado: 6,
+  expulsion: 12, // resultado con alguien arrojado al pozo (votos + animación)
   revelarRol: 6,
   esperaCampana: 15,
   pasadizo: 1,
@@ -53,7 +54,7 @@ export const TIEMPOS = {
 
 export const TAREAS_POR_JUGADOR = 6;
 export const MIN_JUGADORES = 4;
-export const MAX_JUGADORES = 10;
+export const MAX_JUGADORES = 15;
 
 export const RED = {
   prefijo: 'misterio-mansion-',
@@ -64,23 +65,61 @@ export const RED = {
   intervaloSnapshotMs: 66,
   intervaloPosicionMs: 50,
   intervaloPingMs: 2000,
+  // Servidores para que los teléfonos encuentren cómo conectarse entre sí (voz y datos).
+  // Si se cuenta con un servidor TURN propio, agregarlo aquí mejora aún más la conexión.
+  ice: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' }
+  ],
   // Sin noticias de alguien durante este tiempo = se fue (aunque cerrara la pestaña de golpe)
   tiempoCaidaMs: 8000
 };
 
-// Paletas de los personajes: ropa, pelo, pantalón y estilo de peinado.
+// Colores de los personajes (ropa, pelo, pantalón/falda). Cada jugador elige uno y su género.
 export const COLORES = [
-  { nombre: 'Rojo', ropa: '#e0483e', pelo: '#3a2418', pantalon: '#384878', estilo: 'gorra', gorra: '#e0483e' },
-  { nombre: 'Azul', ropa: '#3c6ee0', pelo: '#f0c048', pantalon: '#2c3450', estilo: 'largo' },
-  { nombre: 'Verde', ropa: '#3cae58', pelo: '#6a3a20', pantalon: '#5a4030', estilo: 'corto' },
-  { nombre: 'Rosa', ropa: '#f07ab0', pelo: '#a83850', pantalon: '#484070', estilo: 'coletas' },
-  { nombre: 'Naranja', ropa: '#f08c30', pelo: '#202020', pantalon: '#3a3a48', estilo: 'corto' },
-  { nombre: 'Morado', ropa: '#8a52d0', pelo: '#e8e8f0', pantalon: '#303048', estilo: 'largo' },
-  { nombre: 'Amarillo', ropa: '#f0d030', pelo: '#8a4a20', pantalon: '#486048', estilo: 'gorra', gorra: '#3858c0' },
-  { nombre: 'Celeste', ropa: '#48c8e8', pelo: '#283050', pantalon: '#384060', estilo: 'coletas' },
-  { nombre: 'Blanco', ropa: '#f0f0f0', pelo: '#c86030', pantalon: '#504858', estilo: 'corto' },
-  { nombre: 'Negro', ropa: '#3a3a44', pelo: '#d84848', pantalon: '#28283a', estilo: 'gorra', gorra: '#202028' }
+  { nombre: 'Rojo', ropa: '#d83c3c', pelo: '#3a2418', pantalon: '#384878' },
+  { nombre: 'Negro', ropa: '#34343e', pelo: '#d84848', pantalon: '#22222e' },
+  { nombre: 'Blanco', ropa: '#f2f2f2', pelo: '#c86030', pantalon: '#504858' },
+  { nombre: 'Rosado', ropa: '#f07ab0', pelo: '#a83850', pantalon: '#484070' },
+  { nombre: 'Azul', ropa: '#3858d8', pelo: '#f0c048', pantalon: '#2c3450' },
+  { nombre: 'Cyan', ropa: '#38d0e0', pelo: '#283050', pantalon: '#2c4a60' },
+  { nombre: 'Amarillo', ropa: '#f0c820', pelo: '#8a4a20', pantalon: '#486048' },
+  { nombre: 'Morado', ropa: '#8a4ad0', pelo: '#e8e8f0', pantalon: '#303048' },
+  { nombre: 'Anaranjado', ropa: '#f08428', pelo: '#202020', pantalon: '#3a3a48' },
+  { nombre: 'Banana', ropa: '#f8ec88', pelo: '#6a4a2a', pantalon: '#6a6050' },
+  { nombre: 'Coral', ropa: '#f8806c', pelo: '#3a2a2a', pantalon: '#40486a' },
+  { nombre: 'Lima', ropa: '#a8e040', pelo: '#4a3020', pantalon: '#3a5030' },
+  { nombre: 'Verde', ropa: '#2e9a48', pelo: '#e0b040', pantalon: '#2a3a2a' },
+  { nombre: 'Gris', ropa: '#8a8a96', pelo: '#202028', pantalon: '#4a4a56' },
+  { nombre: 'Marrón', ropa: '#9a4a2a', pelo: '#f0d080', pantalon: '#3a2a20' },
+  { nombre: 'Café', ropa: '#6a4428', pelo: '#181010', pantalon: '#2e2018' }
 ];
+
+export const GENEROS = { h: 'Hombre', m: 'Mujer' };
+
+// Aspecto = color + género: indexa los sprites y retratos (2 por color).
+export const NUM_ASPECTOS = COLORES.length * 2;
+
+export function aspecto(j) {
+  return ((j.color | 0) % COLORES.length) * 2 + (j.genero === 'm' ? 1 : 0);
+}
+
+// Paleta completa para dibujar un aspecto: los hombres llevan pelo corto o gorra y pantalón;
+// las mujeres, pelo largo o coletas y falda.
+export function paletaAspecto(a) {
+  const i = Math.floor(a / 2) % COLORES.length;
+  const c = COLORES[i];
+  const mujer = a % 2 === 1;
+  return {
+    ...c,
+    estilo: mujer ? (i % 2 ? 'coletas' : 'largo') : i % 2 ? 'gorra' : 'corto',
+    gorra: c.ropa,
+    falda: mujer
+  };
+}
 
 // Multiplicadores de velocidad de caminado que el anfitrión puede elegir en la sala.
 export const VELOCIDADES = [0.5, 0.75, 1, 1.25, 1.5, 2];
