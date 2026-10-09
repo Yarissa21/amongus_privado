@@ -1,4 +1,4 @@
-import { COLORES, TIEMPOS, MIN_JUGADORES, MAX_JUGADORES, ROLES } from '../config.js';
+import { COLORES, TIEMPOS, MIN_JUGADORES, MAX_JUGADORES, ROLES, GENEROS, aspecto } from '../config.js';
 import { TAREAS } from '../mundo/mapa.js';
 import { retrato } from '../graficos/personajes.js';
 import { conArticulo } from '../logica/bots.js';
@@ -8,7 +8,7 @@ import Mapa from './mapa.js';
 import { alternarMusica, musicaActiva } from './musica.js';
 
 const $ = (id) => document.getElementById(id);
-const PANTALLAS = ['menu', 'ayuda', 'sala', 'hud', 'cartel', 'reunion', 'fin'];
+const PANTALLAS = ['menu', 'ayuda', 'sala', 'hud', 'cartel', 'reunion', 'fin', 'cinematica'];
 const retratos = new Map();
 
 export function imagenRetrato(color) {
@@ -163,6 +163,12 @@ export default class UI {
     $('sala-menos-bot').onclick = () => this.ctrl.quitarBot();
     $('sala-iniciar').onclick = () => this.ctrl.iniciarPartida();
     $('sala-salir').onclick = () => this.ctrl.salir();
+    // Ajustes plegables para que la lista de jugadores siempre se vea
+    $('sala-ajustes-boton').onclick = () => {
+      const caja = $('sala-ajustes');
+      caja.hidden = !caja.hidden;
+      $('sala-ajustes-icono').textContent = caja.hidden ? '▸' : '▾';
+    };
   }
 
   mostrarSala(red) {
@@ -177,22 +183,32 @@ export default class UI {
     lista.innerHTML = '';
     for (const j of red.jugadores) {
       const li = document.createElement('li');
-      li.appendChild(img(j.color));
+      li.dataset.id = j.id;
+      li.appendChild(img(aspecto(j)));
       const span = document.createElement('span');
       span.textContent = j.nombre;
       li.appendChild(span);
       if (j.bot) li.insertAdjacentHTML('beforeend', '<span class="etiqueta">BOT</span>');
       if (j.id === red.miId) li.insertAdjacentHTML('beforeend', '<span class="etiqueta" style="background:#4878d0">TÚ</span>');
+      if (!j.bot && j.id !== red.miId) li.insertAdjacentHTML('beforeend', '<span class="estado-voz" title="Voz"></span>');
       lista.appendChild(li);
     }
     const colores = $('sala-colores');
     colores.innerHTML = '';
     const mio = red.jugadores.find((j) => j.id === red.miId);
+    document.querySelectorAll('[data-genero]').forEach((b) => {
+      b.classList.toggle('boton-principal', !!mio && (mio.genero || 'h') === b.dataset.genero);
+      b.onclick = () => {
+        guardar('mm-genero', b.dataset.genero);
+        red.elegirGenero(b.dataset.genero);
+      };
+    });
     COLORES.forEach((c, i) => {
       const b = document.createElement('button');
       b.className = 'color';
       b.style.background = c.ropa;
       b.title = c.nombre;
+      if (mio) b.appendChild(img(aspecto({ color: i, genero: mio.genero })));
       const usado = red.jugadores.some((j) => j.color === i && j.id !== red.miId);
       if (usado) b.classList.add('usado');
       if (mio && mio.color === i) b.classList.add('mio');
@@ -203,6 +219,10 @@ export default class UI {
     });
     this.dibujarAjustes(red);
     const n = red.jugadores.length;
+    const humanos = red.jugadores.filter((j) => !j.bot).length;
+    $('sala-contador').textContent = `Jugadores ${n}/${MAX_JUGADORES}` + (red.local ? '' : ` · ${humanos} ${humanos === 1 ? 'persona' : 'personas'}`);
+    const roles = Object.keys(ROLES).filter((id) => (red.config.roles?.[id] ?? 0) > 0).length;
+    $('sala-ajustes-resumen').textContent = `⚙ Ajustes · ${red.config.asesinos} asesino${red.config.asesinos > 1 ? 's' : ''} · ${red.config.velocidad}x · ${roles} roles`;
     $('sala-iniciar').disabled = n < MIN_JUGADORES;
     $('sala-mas-bot').disabled = n >= MAX_JUGADORES;
     $('sala-menos-bot').disabled = !red.jugadores.some((j) => j.bot);
@@ -240,7 +260,7 @@ export default class UI {
       cont.appendChild(d);
     };
     const c = red.config;
-    fila('Asesinos', String(c.asesinos), () => this.ctrl.alternarAsesinos(), () => this.ctrl.alternarAsesinos(), 'Con 2 asesinos se necesitan al menos 7 jugadores');
+    fila('Asesinos', String(c.asesinos), () => this.ctrl.alternarAsesinos(), () => this.ctrl.alternarAsesinos(), '2 asesinos desde 7 jugadores, 3 desde 12');
     fila('Velocidad', `${c.velocidad}x`, () => this.ctrl.cambiarVelocidad(-1), () => this.ctrl.cambiarVelocidad(1), 'Velocidad de caminado de todos');
     const titulo = document.createElement('div');
     titulo.className = 'ajuste-titulo';
@@ -250,6 +270,10 @@ export default class UI {
       const equipo = r.equipo === 'asesino' ? '<i class="etiqueta etiqueta-roja">Asesino</i>' : '<i class="etiqueta etiqueta-verde">Inocente</i>';
       fila(`${escapar(r.nombre)} ${equipo}`, `${c.roles?.[id] ?? r.probabilidad}%`, () => this.ctrl.cambiarProbabilidad(id, -10), () => this.ctrl.cambiarProbabilidad(id, 10), r.descripcion);
     }
+  }
+
+  generoPreferido() {
+    return leer('mm-genero', 'h') === 'm' ? 'm' : 'h';
   }
 
   // ---------- HUD ----------
@@ -451,13 +475,13 @@ export default class UI {
       const n = [...jugadores.values()].length;
       mision = `Hay ${datos.numAsesinos > 1 ? `${datos.numAsesinos} asesinos` : 'un asesino'} entre los ${n} de la casa. Haz tus tareas y descúbrelo.`;
     }
-    const compas = asesino ? datos.companeros.map((id) => jugadores.get(id).color) : [];
+    const compas = asesino ? datos.companeros.map((id) => jugadores.get(id).aspecto) : [];
     this.cartel(
       {
         sub: asesino ? 'Eres ASESINO' : 'Eres INOCENTE',
         titulo: especial ? especial.nombre.toUpperCase() : asesino ? 'ASESINO' : 'INOCENTE',
         clase: asesino ? 'rojo' : 'verde',
-        colores: [yo.color, ...compas],
+        colores: [yo.aspecto, ...compas],
         texto: mision,
         rol: especial ? { descripcion: especial.descripcion, uso: especial.uso } : { descripcion: 'Sin rol especial esta partida.', uso: '' }
       },
@@ -562,7 +586,7 @@ export default class UI {
       b.dataset.id = j.id;
       if (!vivo) b.classList.add('muerta');
       if (r.elegido === j.id) b.classList.add('elegida');
-      b.appendChild(img(j.color));
+      b.appendChild(img(j.aspecto));
       const info = document.createElement('div');
       info.className = 'info';
       const nom = document.createElement('span');
@@ -671,6 +695,8 @@ export default class UI {
         quedan > 0 ? (quedan === 1 ? 'Todavía queda 1 asesino.' : `Todavía quedan ${quedan} asesinos.`) : ''
       ].filter(Boolean);
       sonar('expulsar');
+      const caido = r.jugadores.get(msg.expulsado).nombre;
+      this.programarCinematica(msg.expulsado, `${caido} es llevado al pozo del jardín...`, lineas.slice(1));
     } else if (msg.expulsado) {
       const n = r.jugadores.get(msg.expulsado).nombre;
       const quedan = msg.asesinosRestantes;
@@ -680,15 +706,31 @@ export default class UI {
         quedan > 0 ? (quedan === 1 ? 'Todavía queda 1 asesino.' : `Todavía quedan ${quedan} asesinos.`) : ''
       ].filter(Boolean);
       sonar('expulsar');
+      this.programarCinematica(msg.expulsado, `${n} es llevado al pozo del jardín...`, lineas.slice(1));
     } else {
       lineas = [msg.empate ? 'Hubo un empate.' : 'Se saltó la votación.', 'Nadie fue expulsado.'];
     }
     this.dialogo(lineas);
   }
 
+  // Expulsión: tras ver los votos, se va al jardín y el expulsado cae al pozo
+  programarCinematica(id, inicio, revelacion) {
+    clearTimeout(this.tCinematica);
+    clearTimeout(this.tRevelacion);
+    this.tCinematica = setTimeout(() => {
+      const escena = this.ctrl.escena;
+      if (!this.reunion || !escena || !escena.enJuego) return;
+      clearInterval(this.tDialogo);
+      this.mostrar('cinematica');
+      this.dialogo([inicio], 'cinematica-dialogo');
+      escena.animarExpulsion(id);
+      this.tRevelacion = setTimeout(() => this.dialogo(revelacion, 'cinematica-dialogo'), 4700);
+    }, 2200);
+  }
+
   // Texto que se escribe letra por letra, como en los juegos de Pokémon.
-  dialogo(lineas) {
-    const caja = $('reunion-dialogo');
+  dialogo(lineas, id = 'reunion-dialogo') {
+    const caja = $(id);
     caja.hidden = false;
     caja.textContent = '';
     clearInterval(this.tDialogo);
@@ -704,6 +746,10 @@ export default class UI {
   cerrarReunion() {
     clearInterval(this.tReloj);
     clearInterval(this.tDialogo);
+    clearTimeout(this.tCinematica);
+    clearTimeout(this.tRevelacion);
+    const escena = this.ctrl.escena;
+    if (escena && escena.terminarCinematica) escena.terminarCinematica();
     this.reunion = null;
     document.activeElement && document.activeElement.blur();
     this.mostrar('hud');
@@ -730,7 +776,7 @@ export default class UI {
     escena.className = 'foto-escena';
     const asesino = foto.asesino ? jugadores.get(foto.asesino) : null;
     const victima = jugadores.get(foto.victima);
-    if (asesino) escena.appendChild(img(asesino.color));
+    if (asesino) escena.appendChild(img(asesino.aspecto));
     else {
       const sombra = img(0);
       sombra.className = 'foto-sombra';
@@ -739,7 +785,7 @@ export default class UI {
     const cuchillo = document.createElement('span');
     cuchillo.textContent = '🔪';
     escena.appendChild(cuchillo);
-    const vi = img(victima ? victima.color : 0);
+    const vi = img(victima ? victima.aspecto : 0);
     vi.className = 'foto-victima';
     escena.appendChild(vi);
     caja.appendChild(escena);
@@ -760,7 +806,7 @@ export default class UI {
   abrirLibreta(casos = []) {
     const jug = this.ctrl.jugadoresPartida;
     const nombre = (id) => (jug.get(id) || {}).nombre || '?';
-    const color = (id) => (jug.get(id) || {}).color || 0;
+    const color = (id) => (jug.get(id) || {}).aspecto || 0;
     this.minijuegos.abrirPanel('libreta', '📓 Libreta del detective', 'Se anotan los asesinatos ocurridos mientras estás vivo (máx. 3). Pregunta con V junto a alguien.', (area) => {
       if (!casos.length) {
         const v = document.createElement('p');
@@ -831,6 +877,19 @@ export default class UI {
     $('sala-mic').textContent = voz.micActivo ? '🎤 Micrófono encendido (tocar para apagar)' : '🎤 Activar micrófono';
     $('sala-mic').classList.toggle('boton-principal', voz.micActivo);
     if (error) this.aviso(error, 4000);
+    // Estado de la voz con cada jugador en la sala de espera
+    const textos = { ok: ['🔊', 'Voz conectada'], relevo: ['🔊', 'Voz conectada a través del anfitrión'], relevando: ['…', 'Probando conexión por el anfitrión'], conectando: ['…', 'Conectando voz'], esperando: ['·', 'Esperando'] };
+    document.querySelectorAll('#sala-jugadores li[data-id]').forEach((li) => {
+      const span = li.querySelector('.estado-voz');
+      if (!span) return;
+      const estado = voz.estado(li.dataset.id);
+      span.hidden = !estado;
+      if (!estado) return;
+      const [icono, titulo] = textos[estado];
+      span.textContent = icono;
+      span.title = titulo;
+      span.className = `estado-voz voz-${estado}`;
+    });
     if (!this.vozPreparada) {
       this.vozPreparada = true;
       const alternar = () => voz.alternarMic();
@@ -906,7 +965,7 @@ export default class UI {
       if (!j) continue;
       const d = document.createElement('div');
       d.className = `tarjeta vital vital-${estado}`;
-      d.appendChild(img(j.color));
+      d.appendChild(img(j.aspecto));
       const info = document.createElement('div');
       info.className = 'info';
       info.innerHTML = `<span class="nom">${escapar(j.nombre)}</span><span class="pulso">${estado === 'vivo' ? '♥ Vivo' : estado === 'muerto' ? '✝ Muerto' : '— Desconectado'}</span>`;
@@ -942,7 +1001,7 @@ export default class UI {
     for (const j of jugadores.values()) {
       const d = document.createElement('div');
       d.className = 'tarjeta';
-      d.appendChild(img(j.color));
+      d.appendChild(img(j.aspecto));
       const info = document.createElement('div');
       info.className = 'info';
       const rol = roles.get(j.id);

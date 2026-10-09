@@ -4,7 +4,9 @@ Juego de deducción social en el navegador (estilo Among Us) con gráficos pixel
 
 ## Cómo jugar
 
-De 4 a 10 personas están en una mansión de 13 cuartos (biblioteca, dormitorio, baño, cuarto de juegos, cocina, sala, comedor, estudio, lavandería, vestíbulo, invernadero, garaje y un jardín con estanque). Uno (o dos, desde 7 jugadores) es el **asesino** y el resto son **inocentes**.
+De 4 a 15 personas están en una mansión de 16 cuartos (biblioteca, dormitorio, baño, cuarto de juegos, sala de música, cocina, sala, comedor, estudio, billar, lavandería, vestíbulo, invernadero, garaje, bodega) y un gran jardín con estanque, fuente y cementerio. Hay 37 tareas.
+
+Cada jugador elige su color (16 colores) y si su personaje es hombre o mujer. Quien es expulsado en una votación es arrojado al pozo del jardín en una pequeña escena animada. Uno (o dos, desde 7 jugadores) es el **asesino** y el resto son **inocentes**.
 
 - **Inocentes:** hagan las tareas de la casa (las burbujas `!` marcan dónde) y descubran al asesino. Cada tarea es un minijuego (frotar manchas, repetir la melodía del piano, cortar leña a tiempo, girar la llave del reloj...), jugable con mouse o con el dedo.
 - **Asesino:** elimina a los inocentes sin que te vean. Puedes apagar las luces, usar los pasadizos secretos (estante de la biblioteca, armario del dormitorio, chimenea de la sala y alacena de la cocina) y **disfrazarte** de otro jugador durante 20 s: los testigos verán a esa persona cometer el crimen.
@@ -30,7 +32,7 @@ De 4 a 10 personas están en una mansión de 13 cuartos (biblioteca, dormitorio,
 
 Tanto en línea como con bots se pasa por una sala de espera donde el anfitrión elige:
 
-- **Asesinos:** 1 o 2 (2 solo desde 7 jugadores).
+- **Asesinos:** 1, 2 o 3 (2 desde 7 jugadores, 3 desde 12).
 - **Velocidad:** de 0.5x a 2x para todos los personajes.
 - **Roles especiales:** la probabilidad (0-100 %, por defecto 100 %) de que cada jugador del equipo reciba un rol. Cada jugador tiene como mucho uno y cada rol sale una sola vez por partida. Al empezar se muestra en grande tu rol, qué hace y con qué tecla se usa, y queda un recordatorio en el HUD.
 
@@ -75,6 +77,8 @@ En las salas en línea, el botón 🎤 activa el micrófono (el navegador pide p
 - **Reunión:** solo hablan los vivos y los oyen todos.
 - **Sala de espera y final:** todos se oyen con todos.
 - Un asesino dentro de un pasadizo o invisible no se oye.
+
+Si dos jugadores no logran conectarse directo (pasa con algunas redes móviles), el anfitrión les retransmite el audio automáticamente. En la sala de espera, junto a cada jugador se ve el estado de la voz (🔊 directa o a través del anfitrión). Para redes muy restrictivas se puede agregar un servidor TURN en `RED.ice` (`src/config.js`).
 
 El micrófono solo funciona en páginas seguras (**https** o `localhost`). Si lo subes a Netlify o GitHub Pages funciona; con `vite --host` por IP en la red local, no.
 

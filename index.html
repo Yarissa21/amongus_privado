@@ -79,9 +79,15 @@
         <h2 id="sala-titulo">Sala de espera</h2>
         <p class="codigo-sala" id="sala-codigo-fila">Código: <b id="sala-codigo">----</b></p>
         <p class="ayuda-chica" id="sala-ayuda">Comparte el código con tus amigos para que se unan.</p>
+        <p class="titulo-lista" id="sala-contador">Jugadores</p>
         <ul id="sala-jugadores" class="lista-jugadores"></ul>
+        <div class="fila generos" id="sala-generos">
+          <button class="boton boton-sec" data-genero="h">♂ Hombre</button>
+          <button class="boton boton-sec" data-genero="m">♀ Mujer</button>
+        </div>
         <div class="colores" id="sala-colores"></div>
-        <div id="sala-ajustes" class="ajustes"></div>
+        <button id="sala-ajustes-boton" class="boton-ajustes"><span id="sala-ajustes-resumen">⚙ Ajustes</span><span id="sala-ajustes-icono">▸</span></button>
+        <div id="sala-ajustes" class="ajustes" hidden></div>
         <div id="sala-anfitrion" class="col">
           <div class="fila">
             <button id="sala-mas-bot" class="boton boton-sec">+ Bot</button>
@@ -220,6 +226,11 @@
         </div>
         <div id="reunion-dialogo" class="dialogo" hidden></div>
       </div>
+    </section>
+
+    <!-- Expulsión al pozo -->
+    <section id="cinematica" class="pantalla-cinematica" hidden>
+      <div id="cinematica-dialogo" class="dialogo dialogo-cinematica"></div>
     </section>
 
     <!-- Fin -->

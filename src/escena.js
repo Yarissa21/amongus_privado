@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { ALTO, ANCHO_MAX, TILE, VELOCIDAD, VELOCIDAD_FANTASMA, VISION, DISTANCIA, TIEMPOS, RED, COLORES } from './config.js';
-import { ANCHO_MAPA, ALTO_MAPA, MUEBLES, TAREAS, PASADIZOS, FUSIBLES, MESA, salaEn } from './mundo/mapa.js';
+import { ALTO, ANCHO_MAX, TILE, VELOCIDAD, VELOCIDAD_FANTASMA, VISION, DISTANCIA, TIEMPOS, RED, NUM_ASPECTOS } from './config.js';
+import { ANCHO_MAPA, ALTO_MAPA, MUEBLES, TAREAS, PASADIZOS, FUSIBLES, MESA, POZO, salaEn } from './mundo/mapa.js';
 import { TIPOS_MUEBLE, mover, hayLinea, bloqueaVista } from './mundo/colision.js';
 import { dibujarSuelo } from './graficos/suelo.js';
 import { dibujarMuebles } from './graficos/muebles.js';
@@ -42,7 +42,7 @@ export default class EscenaMundo extends Phaser.Scene {
       const def = TIPOS_MUEBLE[m.tipo];
       const img = this.add.image(m.tx * TILE, m.ty * TILE, `m_${m.tipo}_0`).setOrigin(0);
       img.setDepth(m.ty * TILE + def.h);
-      if (m.tipo === 'chimenea' || m.tipo === 'estufa') this.animados.push({ img, tipo: m.tipo });
+      if (m.tipo === 'chimenea' || m.tipo === 'estufa' || m.tipo === 'fuente') this.animados.push({ img, tipo: m.tipo });
     }
     let cuadro = 0;
     this.time.addEvent({
@@ -85,7 +85,8 @@ export default class EscenaMundo extends Phaser.Scene {
     const muebles = dibujarMuebles();
     for (const [tipo, cuadros] of Object.entries(muebles)) cuadros.forEach((c, k) => this.textures.addCanvas(`m_${tipo}_${k}`, c));
 
-    COLORES.forEach((_, i) => {
+    // Un juego de sprites por aspecto (color + género)
+    for (let i = 0; i < NUM_ASPECTOS; i++) {
       const tex = this.textures.addCanvas(`pj_${i}`, hojaPersonaje(i));
       for (let f = 0; f < 9; f++) tex.add(f, 0, f * ANCHO_PJ, 0, ANCHO_PJ, ALTO_PJ);
       DIRS.forEach((dir, d) => {
@@ -97,7 +98,7 @@ export default class EscenaMundo extends Phaser.Scene {
         });
       });
       this.textures.addCanvas(`cuerpo_${i}`, hojaCuerpo(i));
-    });
+    }
 
     // Burbuja "!" como en los juegos de Pokémon
     const b = lienzo(13, 14);
@@ -238,6 +239,7 @@ export default class EscenaMundo extends Phaser.Scene {
   }
 
   limpiar() {
+    this.terminarCinematica();
     for (const v of this.vistas.values()) {
       v.spr.destroy();
       v.sombra.destroy();
@@ -268,14 +270,14 @@ export default class EscenaMundo extends Phaser.Scene {
 
   crearVista(j) {
     const sombra = this.add.ellipse(0, 0, 12, 5, 0x000000, 0.22);
-    const spr = this.add.sprite(0, 0, `pj_${j.color}`, 0).setOrigin(0.5, 1);
+    const spr = this.add.sprite(0, 0, `pj_${j.aspecto}`, 0).setOrigin(0.5, 1);
     let texto = textoFuente(j.nombre);
     const nombre = this.add.bitmapText(0, 0, 'fuente', texto).setOrigin(0.5, 1).setDepth(7000);
     if (this.yo && this.yo.companeros.has(j.id)) nombre.setTint(0xff7070);
     if (this.yo && j.id === this.yo.id && this.yo.rol === 'asesino') nombre.setTint(0xff7070);
     const escudoImg = this.add.image(0, 0, 'escudo').setOrigin(0.5, 1).setVisible(false);
     const vozImg = this.add.image(0, 0, 'voz').setOrigin(0.5, 1).setDepth(7001).setVisible(false);
-    this.vistas.set(j.id, { id: j.id, color: j.color, spr, sombra, nombre, escudoImg, vozImg, x: 0, y: 0, objetivo: null, dir: 0, mov: false, vivo: true, apariencia: j.id, lookId: j.id, invisible: false, escudo: false });
+    this.vistas.set(j.id, { id: j.id, color: j.color, aspecto: j.aspecto, spr, sombra, nombre, escudoImg, vozImg, x: 0, y: 0, objetivo: null, dir: 0, mov: false, vivo: true, apariencia: j.id, lookId: j.id, invisible: false, escudo: false });
   }
 
   crearBurbujas() {
@@ -377,7 +379,7 @@ export default class EscenaMundo extends Phaser.Scene {
       ids.add(id);
       if (!this.cuerpos.has(id)) {
         const info = this.jugadoresInfo.get(id);
-        const img = this.add.image(x, y + 2, `cuerpo_${info ? info.color : 0}`).setOrigin(0.5, 1).setDepth(y - 6);
+        const img = this.add.image(x, y + 2, `cuerpo_${info ? info.aspecto : 0}`).setOrigin(0.5, 1).setDepth(y - 6);
         this.cuerpos.set(id, img);
       }
       // Veneno: el cuerpo se pone verde y se desvanece
@@ -507,7 +509,7 @@ export default class EscenaMundo extends Phaser.Scene {
       if (yo.subrol !== 'cambiaformas' || !yo.vivo || this.estado.yo.cdD > 0 || this.estado.yo.dis > 0) return;
       const opciones = [...this.jugadoresInfo.values()]
         .filter((j) => j.id !== yo.id)
-        .map((j) => ({ id: j.id, nombre: j.nombre, imagen: imagenRetrato(j.color) }));
+        .map((j) => ({ id: j.id, nombre: j.nombre, imagen: imagenRetrato(j.aspecto) }));
       this.enlace.ui.minijuegos.abrirSelector('Cambiaformas', `Elige a quién imitar durante ${TIEMPOS.disfraz} segundos.`, opciones, (id) => {
         this.enlace.enviar({ t: 'disfraz', objetivo: id });
       });
@@ -654,7 +656,8 @@ export default class EscenaMundo extends Phaser.Scene {
       const info = this.jugadoresInfo.get(look) || this.jugadoresInfo.get(v.id);
       v.lookId = look;
       v.color = info.color;
-      v.spr.setTexture(`pj_${info.color}`, 0);
+      v.aspecto = info.aspecto;
+      v.spr.setTexture(`pj_${info.aspecto}`, 0);
       v.nombre.setText(textoFuente(info.nombre));
     }
     const x = Math.round(v.x);
@@ -676,7 +679,7 @@ export default class EscenaMundo extends Phaser.Scene {
     if (fantasma) v.spr.setY(y + 2 + Math.sin(this.time.now / 300 + v.color) * 1.5);
     const dir = NOMBRE_DIR[v.dir] || 'abajo';
     v.spr.setFlipX(v.dir === 2);
-    const clave = `andar_${v.color}_${dir}`;
+    const clave = `andar_${v.aspecto}_${dir}`;
     if (v.mov) {
       if (!v.spr.anims.isPlaying || v.spr.anims.currentAnim.key !== clave) v.spr.play(clave);
     } else {
@@ -723,7 +726,7 @@ export default class EscenaMundo extends Phaser.Scene {
         ui.minijuegos.abrirSelector(
           `Investigar a ${nombre(o.id)}`,
           '¿Sobre qué asesinato quieres preguntar?',
-          casos.map((c) => ({ id: c.i, nombre: `Muerte de ${nombre(c.victima)} (${c.preguntas.length}/3)`, imagen: imagenRetrato((this.jugadoresInfo.get(c.victima) || {}).color || 0) })),
+          casos.map((c) => ({ id: c.i, nombre: `Muerte de ${nombre(c.victima)} (${c.preguntas.length}/3)`, imagen: imagenRetrato((this.jugadoresInfo.get(c.victima) || {}).aspecto || 0) })),
           (i) => this.enlace.enviar({ t: 'investigar', objetivo: o.id, caso: i })
         );
         break;
@@ -737,7 +740,7 @@ export default class EscenaMundo extends Phaser.Scene {
         ui.minijuegos.abrirSelector(
           'Escudo del ángel',
           `Protege a un vivo durante ${TIEMPOS.escudo} segundos.`,
-          vivos.map((v) => ({ id: v.id, nombre: nombre(v.id), imagen: imagenRetrato((this.jugadoresInfo.get(v.id) || {}).color || 0) })),
+          vivos.map((v) => ({ id: v.id, nombre: nombre(v.id), imagen: imagenRetrato((this.jugadoresInfo.get(v.id) || {}).aspecto || 0) })),
           (id) => this.enlace.enviar({ t: 'escudo', objetivo: id })
         );
         break;
@@ -766,6 +769,84 @@ export default class EscenaMundo extends Phaser.Scene {
       default:
         return oculto;
     }
+  }
+
+  // ---------- Expulsión: el expulsado es arrojado al pozo del jardín ----------
+
+  animarExpulsion(id) {
+    this.terminarCinematica();
+    const info = this.jugadoresInfo.get(id);
+    if (!info) return;
+    this.cinematica = true;
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    // Corte al jardín con un fundido desde negro
+    cam.centerOn(POZO.x, POZO.y - 12);
+    cam.fadeIn(500, 0, 0, 0);
+    const suelo = POZO.y + 18;
+    const spr = this.add.sprite(POZO.x - 70, suelo + 2, `pj_${info.aspecto}`, 6).setOrigin(0.5, 1).setDepth(suelo + 2);
+    const nombre = this.add.bitmapText(spr.x, spr.y - 23, 'fuente', textoFuente(info.nombre)).setOrigin(0.5, 1).setDepth(7000);
+    const sombra = this.add.ellipse(spr.x, suelo, 12, 5, 0x000000, 0.22).setDepth(suelo - 20);
+    this.actores = [spr, nombre, sombra];
+    const seguir = () => {
+      nombre.setPosition(Math.round(spr.x), Math.round(spr.y - 23));
+      sombra.setPosition(Math.round(spr.x), suelo);
+    };
+    const tl = (ms, f) => this.actores && this.time.delayedCall(ms, () => this.cinematica && f());
+    // 1) Camina hasta el borde del pozo
+    tl(900, () => {
+      spr.play(`andar_${info.aspecto}_lado`);
+      this.tweens.add({ targets: spr, x: POZO.x - 24, duration: 1500, onUpdate: seguir, onComplete: () => spr.stop().setFrame(6) });
+    });
+    // 2) Duda un momento mirando al público y salta al brocal
+    tl(2600, () => spr.setFrame(0));
+    tl(3100, () => {
+      spr.setFrame(6);
+      sombra.setVisible(false);
+      sonar('caida');
+      this.tweens.add({ targets: spr, x: POZO.x, duration: 450, onUpdate: seguir });
+      this.tweens.add({
+        targets: spr,
+        y: POZO.y - 16,
+        duration: 225,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+        onUpdate: seguir,
+        onComplete: () => {
+          // 3) Cae dentro: el brocal del pozo lo tapa mientras se hunde
+          spr.setDepth(POZO.y + 10);
+          nombre.setVisible(false);
+          this.tweens.add({ targets: spr, y: POZO.y + 24, angle: 25, alpha: 0, duration: 650, ease: 'Quad.easeIn' });
+        }
+      });
+    });
+    // 4) Chapuzón
+    tl(4300, () => {
+      sonar('chapuzon');
+      cam.shake(200, 0.006);
+      for (let i = 0; i < 12; i++) {
+        const a = -Math.PI * (0.15 + 0.7 * (i / 11));
+        const gota = this.add.image(POZO.x, POZO.y - 2, 'esquirla').setTint(0x6ab0f0).setDepth(POZO.y + 30);
+        this.actores.push(gota);
+        this.tweens.add({
+          targets: gota,
+          x: POZO.x + Math.cos(a) * (16 + Math.random() * 10),
+          y: POZO.y - 2 + Math.sin(a) * (18 + Math.random() * 10),
+          alpha: 0,
+          duration: 700,
+          ease: 'Quad.easeOut'
+        });
+      }
+    });
+  }
+
+  terminarCinematica() {
+    if (this.actores) this.actores.forEach((o) => o.destroy());
+    this.actores = null;
+    if (!this.cinematica) return;
+    this.cinematica = false;
+    const v = this.yo && this.vistas.get(this.yo.id);
+    if (v && this.enJuego) this.cameras.main.startFollow(v.spr, true, 1, 1, 0, -10);
   }
 
   // Grito del alertador: marca en el lugar y flecha en el borde de la pantalla
@@ -860,7 +941,7 @@ export default class EscenaMundo extends Phaser.Scene {
   dibujarOscuridad() {
     const rt = this.oscuridad;
     rt.clear();
-    if (!this.yo.vivo) return;
+    if (!this.yo.vivo || this.cinematica) return;
     const radio = this.radioVision();
     const cam = this.cameras.main;
     const ox = this.yo.x;
@@ -893,7 +974,7 @@ export default class EscenaMundo extends Phaser.Scene {
   // Durante el apagón, una flecha guía a la caja de fusibles
   actualizarFlecha() {
     const f = this.flecha;
-    if (!this.estado.luces || !this.yo.vivo || this.enReunion) {
+    if (!this.estado.luces || !this.yo.vivo || this.enReunion || this.cinematica) {
       f.setVisible(false);
       return;
     }

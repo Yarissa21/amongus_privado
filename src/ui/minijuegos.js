@@ -204,6 +204,49 @@ function tocarTodos(area, fin, { fondo, items, toques = 1, alTocar }) {
   });
 }
 
+// Golpear en el momento justo: una marca va y viene, hay que tocar cuando está en la zona verde
+function punteria(area, fin, { fondo, objetivo, boton, contador, encoger }) {
+  area.style.background = fondo;
+  const blanco = el(area, 'mj-fuego', objetivo);
+  const barra = el(area, 'mj-timing');
+  const zona = el(barra, 'mj-zona-verde');
+  const marca = el(barra, 'mj-marca');
+  const golpes = el(area, 'mj-guia', `${contador}: 0 / 3`);
+  const b = el(area, 'mj-boton', boton);
+  let x = 0;
+  let vel = 1.6;
+  let aciertos = 0;
+  let ancho = 22;
+  let centro = azar(25, 75);
+  const ubicar = () => {
+    zona.style.left = `${centro - ancho / 2}%`;
+    zona.style.width = `${ancho}%`;
+  };
+  ubicar();
+  b.onpointerdown = (e) => {
+    e.preventDefault();
+    if (Math.abs(x - centro) <= ancho / 2) {
+      aciertos++;
+      sonar('click');
+      blanco.style.transform = encoger
+        ? `translate(-50%, -50%) scale(${1 - aciertos * 0.2}) rotate(${aciertos * 25}deg)`
+        : `translate(-50%, -50%) scale(${1 + aciertos * 0.15})`;
+      golpes.textContent = `${contador}: ${aciertos} / 3`;
+      if (aciertos >= 3) return fin();
+      ancho -= 4;
+      vel += 0.5;
+      centro = azar(20, 80);
+      ubicar();
+    } else sacudir(barra);
+  };
+  const t = setInterval(() => {
+    x += vel;
+    if (x >= 100 || x <= 0) vel = -vel;
+    marca.style.left = `${x}%`;
+  }, 16);
+  return () => clearInterval(t);
+}
+
 // ---------- Minijuegos concretos ----------
 
 const MINIJUEGOS = {
@@ -495,45 +538,7 @@ const MINIJUEGOS = {
   },
   lena: {
     instruccion: 'Toca "Cortar" cuando la marca esté en la zona verde (3 veces).',
-    crear: (a, fin) => {
-      a.style.background = 'linear-gradient(#90d070, #6a9a50)';
-      const tronco = el(a, 'mj-fuego', '🪵');
-      const barra = el(a, 'mj-timing');
-      const zona = el(barra, 'mj-zona-verde');
-      const marca = el(barra, 'mj-marca');
-      const golpes = el(a, 'mj-guia', 'Cortes: 0 / 3');
-      const b = el(a, 'mj-boton', '🪓 Cortar');
-      let x = 0;
-      let vel = 1.6;
-      let aciertos = 0;
-      let ancho = 22;
-      let centro = azar(25, 75);
-      const ubicar = () => {
-        zona.style.left = `${centro - ancho / 2}%`;
-        zona.style.width = `${ancho}%`;
-      };
-      ubicar();
-      b.onpointerdown = (e) => {
-        e.preventDefault();
-        if (Math.abs(x - centro) <= ancho / 2) {
-          aciertos++;
-          sonar('click');
-          tronco.style.transform = `translate(-50%, -50%) scale(${1 - aciertos * 0.2}) rotate(${aciertos * 25}deg)`;
-          golpes.textContent = `Cortes: ${aciertos} / 3`;
-          if (aciertos >= 3) return fin();
-          ancho -= 4;
-          vel += 0.5;
-          centro = azar(20, 80);
-          ubicar();
-        } else sacudir(barra);
-      };
-      const t = setInterval(() => {
-        x += vel;
-        if (x >= 100 || x <= 0) vel = -vel;
-        marca.style.left = `${x}%`;
-      }, 16);
-      return () => clearInterval(t);
-    }
+    crear: (a, fin) => punteria(a, fin, { fondo: 'linear-gradient(#90d070, #6a9a50)', objetivo: '🪵', boton: '🪓 Cortar', contador: 'Cortes', encoger: true })
   },
   perro: {
     instruccion: 'Lleva el plato de comida al perro.',
@@ -638,6 +643,59 @@ const MINIJUEGOS = {
       }, 50);
       return () => clearInterval(t);
     }
+  },
+  disco: {
+    instruccion: 'Pon el disco en el tocadiscos.',
+    crear: (a, fin) => soltar(a, fin, { fondo: 'linear-gradient(#3a4a7a, #e0b060)', objeto: '💿', destino: '🎶', textoDestino: 'Tocadiscos' })
+  },
+  billar: {
+    instruccion: 'Mete las bolas en el triángulo en orden: del 1 al 6.',
+    crear: (a, fin) =>
+      enOrden(a, fin, {
+        fondo: 'radial-gradient(#3a9a5a, #2e7a4a)',
+        items: [1, 2, 3, 4, 5, 6].map((n) => ({
+          orden: n - 1,
+          texto: String(n),
+          estilos: { borderRadius: '50%', fontSize: '22px', fontFamily: 'var(--titulo)', background: ['#f0c820', '#3858d8', '#d83c3c', '#8a4ad0', '#f08428', '#2e9a48'][n - 1], color: '#ffffff', textShadow: '1px 1px 0 #000' }
+        }))
+      })
+  },
+  dardos: {
+    instruccion: 'Lanza cuando la marca esté en la zona verde (3 dardos).',
+    crear: (a, fin) => punteria(a, fin, { fondo: 'linear-gradient(#5a7a4a, #2e3c28)', objetivo: '🎯', boton: '🎯 Lanzar', contador: 'Dardos', encoger: false })
+  },
+  vino: {
+    instruccion: 'Toca cada botella para acomodarla en el estante.',
+    crear: (a, fin) =>
+      tocarTodos(a, fin, {
+        fondo: 'linear-gradient(#7a6a5a, #4a3a2a)',
+        items: Array.from({ length: 6 }, () => ({ texto: '🍾' })),
+        alTocar: (b) => {
+          b.style.transform = 'rotate(90deg)';
+          b.textContent = '🍷';
+          return true;
+        }
+      })
+  },
+  barril: {
+    instruccion: 'Arrastra la tapa hasta el barril.',
+    crear: (a, fin) => riel(a, fin, { fondo: 'linear-gradient(#8a7e70, #5a4e40)', pieza: '🟤', texto: '🛢️' })
+  },
+  lapida: { instruccion: 'Quita el musgo de la lápida.', crear: frotar('linear-gradient(#b8b8c0, #8a8a94)', '🧽', 6, '', 'mj-musgo') },
+  fuente: {
+    instruccion: 'Saca las hojas del agua de la fuente.',
+    crear: (a, fin) =>
+      zonas(a, fin, {
+        fondo: 'radial-gradient(ellipse at center, #8ec0f0, #5a9ad8 60%, #a8a8b0 62%)',
+        herramienta: '🥢',
+        radio: 12,
+        dano: 0.08,
+        objetivos: manchas(6, '🍂', 'mj-hoja-seca'),
+        dibujar: (z) => {
+          z.nodo.style.opacity = z.vida;
+          z.nodo.style.transform = `translate(-50%, -50%) rotate(${(1 - z.vida) * 180}deg)`;
+        }
+      })
   },
   fusibles: {
     instruccion: 'Sube todos los interruptores para devolver la luz.',

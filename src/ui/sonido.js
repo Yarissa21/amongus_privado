@@ -76,6 +76,13 @@ const EFECTOS = {
     tono(1400, 0, 0.15, 'triangle', 0.08, 2200);
     tono(1800, 0.08, 0.25, 'triangle', 0.06, 900);
   },
+  // Caída al pozo y chapuzón
+  caida: () => tono(1100, 0, 0.7, 'sine', 0.08, 180),
+  chapuzon: () => {
+    tono(500, 0, 0.35, 'square', 0.06, 60);
+    tono(1400, 0.02, 0.25, 'triangle', 0.05, 300);
+    tono(90, 0.05, 0.5, 'sine', 0.2, 40);
+  },
   // Golpe disonante al ver un cuerpo
   cuerpo: () => {
     tono(185, 0, 1.4, 'sawtooth', 0.06);
