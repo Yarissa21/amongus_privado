@@ -49,7 +49,10 @@ export const TIEMPOS = {
   escudo: 20,
   enfriamientoEscudo: 30,
   matarTrasEscudo: 10,
-  grito: 7
+  grito: 7,
+  daltonismo: 15,
+  enfriamientoDaltonico: 35,
+  primerDaltonico: 15
 };
 
 export const TAREAS_POR_JUGADOR = 6;
@@ -124,86 +127,97 @@ export function paletaAspecto(a) {
 // Multiplicadores de velocidad de caminado que el anfitrión puede elegir en la sala.
 export const VELOCIDADES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-// Roles especiales. Cada jugador del equipo indicado tiene "probabilidad"% de recibirlo
-// (el anfitrión la cambia en la sala). Cada rol sale una sola vez por partida. Para agregar un rol nuevo basta con sumarlo aquí
-// y darle su habilidad en partida.js / escena.js.
+// Roles especiales. "cantidad" es cuántos jugadores de ese equipo lo reciben como máximo
+// (el anfitrión la cambia en la sala: por ejemplo 3 médicos y 2 camarógrafos). Si hay más cupos que
+// jugadores, se reparten al azar. Para agregar un rol nuevo basta con sumarlo aquí y darle su
+// habilidad en partida.js / escena.js.
 export const ROLES = {
   alertador: {
     uso: 'Pasivo: si te matan, todos sabrán desde dónde gritaste.',
     equipo: 'inocente',
     nombre: 'Alertador',
     descripcion: 'Si lo asesinan lanza un grito y todos ven desde dónde vino.',
-    probabilidad: 100
+    cantidad: 1
   },
   medico: {
     uso: 'Tecla V: abrir la tableta de signos vitales (batería 25 s).',
     equipo: 'inocente',
     nombre: 'Médico',
     descripcion: 'Tiene una tableta con los signos vitales de todos (tecla V). Su batería dura 25 s en total.',
-    probabilidad: 100
+    cantidad: 1
   },
   juez: {
     uso: 'Termina tus tareas y en la votación usa ⚖ Veredicto.',
     equipo: 'inocente',
     nombre: 'Juez',
     descripcion: 'Al terminar sus tareas puede dictar un veredicto en una votación: sale quien él elija, pero si no es asesino sale él.',
-    probabilidad: 100
+    cantidad: 1
   },
   detective: {
     uso: 'Tecla V junto a alguien: dónde estaba durante un asesinato.',
     equipo: 'inocente',
     nombre: 'Detective',
     descripcion: 'Tras un asesinato, acércate a alguien y usa V: sabrás dónde estaba en ese momento (3 casos, 3 sospechosos por caso).',
-    probabilidad: 100
+    cantidad: 1
   },
   camarografo: {
-    uso: 'Tecla V: esconder la cámara donde estás parado.',
+    uso: 'Tecla V: esconder una cámara (una por ronda).',
     equipo: 'inocente',
     nombre: 'Camarógrafo',
-    descripcion: 'Esconde una cámara (V) que fotografía el asesinato que ocurra cerca. Aparece tras la votación y cualquiera puede recogerla.',
-    probabilidad: 100
+    descripcion: 'Esconde una cámara por ronda (V) que fotografía el asesinato que ocurra cerca. Aparece tras la votación y cualquiera puede recogerla.',
+    cantidad: 1
   },
   angel: {
     uso: 'Al morir, tecla V: dar un escudo a un vivo.',
     equipo: 'inocente',
     nombre: 'Ángel',
     descripcion: 'Cuando muere, puede dar un escudo (V) a un vivo: el asesino no podrá matarlo mientras dure.',
-    probabilidad: 100
+    cantidad: 1
   },
   cambiaformas: {
     uso: 'Tecla C: disfrazarte de otro jugador 20 s.',
     equipo: 'asesino',
     nombre: 'Cambiaformas',
     descripcion: 'Puede disfrazarse de otro jugador durante 20 s (tecla C) para incriminarlo.',
-    probabilidad: 100
+    cantidad: 1
   },
   venenosa: {
     uso: 'Pasivo: los cuerpos de tus víctimas desaparecen a los 20 s.',
     equipo: 'asesino',
     nombre: 'Venenosa',
     descripcion: 'Los cuerpos de sus víctimas se desintegran a los 20 s.',
-    probabilidad: 100
+    cantidad: 1
   },
   fantasma: {
     uso: 'Tecla V: volverte invisible 10 s (puedes matar así).',
     equipo: 'asesino',
     nombre: 'Fantasma',
     descripcion: 'Puede volverse invisible 10 s (tecla V) y matar sin ser visto.',
-    probabilidad: 100
+    cantidad: 1
   },
   alien: {
     uso: 'Pasivo: tus víctimas mueren 8 s después del ataque.',
     equipo: 'asesino',
     nombre: 'Alien',
     descripcion: 'Sus víctimas siguen caminando 8 s antes de morir, dándole tiempo de escapar.',
-    probabilidad: 100
+    cantidad: 1
+  },
+  daltonico: {
+    uso: 'Tecla V: 15 s en que todos cambian de color y nadie ve los nombres.',
+    equipo: 'asesino',
+    nombre: 'Daltónico',
+    descripcion: 'Durante 15 s todos los jugadores cambian de color al azar y no se ven los nombres: nadie sabe quién es quién.',
+    cantidad: 1
   }
 };
+
+// Máximo de jugadores por rol que se puede elegir en la sala
+export const MAX_POR_ROL = { inocente: 10, asesino: 3 };
 
 export function configInicial() {
   return {
     asesinos: 1,
     velocidad: 1,
-    roles: Object.fromEntries(Object.entries(ROLES).map(([id, r]) => [id, r.probabilidad]))
+    roles: Object.fromEntries(Object.entries(ROLES).map(([id, r]) => [id, r.cantidad]))
   };
 }

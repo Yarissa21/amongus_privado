@@ -34,7 +34,7 @@ Tanto en línea como con bots se pasa por una sala de espera donde el anfitrión
 
 - **Asesinos:** 1, 2 o 3 (2 desde 7 jugadores, 3 desde 12).
 - **Velocidad:** de 0.5x a 2x para todos los personajes.
-- **Roles especiales:** la probabilidad (0-100 %, por defecto 100 %) de que cada jugador del equipo reciba un rol. Cada jugador tiene como mucho uno y cada rol sale una sola vez por partida. Al empezar se muestra en grande tu rol, qué hace y con qué tecla se usa, y queda un recordatorio en el HUD.
+- **Roles especiales:** cuántos jugadores tendrán cada rol (por ejemplo 3 médicos y 2 camarógrafos; hasta 10 por rol de inocente y 3 por rol de asesino). Si hay más cupos que jugadores se reparten al azar; cada jugador tiene como mucho uno. Al empezar se muestra en grande tu rol, qué hace y con qué tecla se usa, y queda un recordatorio en el HUD.
 
 | Rol | Equipo | Qué hace |
 |---|---|---|
@@ -42,12 +42,15 @@ Tanto en línea como con bots se pasa por una sala de espera donde el anfitrión
 | Médico | Inocente | Tableta de signos vitales (V). La batería dura 25 s en total. |
 | Juez | Inocente | Con sus tareas terminadas puede dictar un veredicto en la votación: sale quien elija; si no era asesino, sale él. |
 | Detective | Inocente | Tras un asesinato, junto a alguien (V) sabe en qué cuarto estaba en ese momento. 3 casos, 3 sospechosos por caso; todo queda en su libreta. |
-| Camarógrafo | Inocente | Esconde una cámara (V) que fotografía el asesinato cercano. Aparece tras la votación; quien la recoja ve la foto y decide si mostrarla en la siguiente reunión. |
+| Camarógrafo | Inocente | Esconde una cámara por ronda (V) que fotografía el asesinato cercano. Aparece tras la votación; quien la recoja ve la foto y decide si mostrarla en la siguiente reunión. |
 | Ángel | Inocente | Al morir, da un escudo de 20 s (V) a un vivo. Si el asesino lo ataca, falla; solo el asesino y los fantasmas lo ven romperse. |
 | Cambiaformas | Asesino | Se disfraza de otro jugador 20 s (C). |
 | Venenosa | Asesino | Los cuerpos de sus víctimas se ponen verdes y desaparecen a los 20 s. |
 | Fantasma | Asesino | Invisible 10 s (V); puede matar así. Solo lo ven su cómplice y los muertos. |
 | Alien | Asesino | La víctima camina 8 s más y luego muere donde esté (no puede reportar ni tocar la campana). |
+| Daltónico | Asesino | Durante 15 s (V) todos cambian de color al azar y no se ven los nombres. |
+
+**Sala de cámaras:** junto a la bodega hay una consola (E) con una cámara por cuarto; se pasa de una a otra con ◀ ▶ (A / D) para ver en vivo qué ocurre. En un apagón las cámaras se quedan sin señal.
 
 **Mapa (M):** muestra la casa, tu posición y tus tareas. Los asesinos ven a su cómplice y pueden apagar las luces desde ahí (enfriamiento compartido entre asesinos).
 

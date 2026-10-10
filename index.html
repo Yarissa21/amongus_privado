@@ -134,6 +134,16 @@
       </div>
       <div id="hud-lugar" class="letrero"></div>
       <div id="hud-aviso" class="aviso" hidden></div>
+      <div id="hud-camaras" class="visor-camaras" hidden>
+        <div class="visor-lineas"></div>
+        <div class="visor-sin-senal" id="visor-sin-senal" hidden>SIN SEÑAL</div>
+        <div class="visor-cabecera"><span class="visor-rec">● REC</span> <b id="visor-nombre"></b> <span id="visor-numero"></span></div>
+        <div class="visor-botones">
+          <button class="boton boton-sec" data-camara="camAnt">◀ A</button>
+          <button class="boton boton-principal" data-camara="camSalir">Salir (E)</button>
+          <button class="boton boton-sec" data-camara="camSig">D ▶</button>
+        </div>
+      </div>
       <div id="hud-pasadizo" class="caja panel-pasadizo" hidden>
         <div class="pasadizo-titulo">Pasadizo secreto · <b id="hud-pasadizo-lugar"></b></div>
         <div class="fila">

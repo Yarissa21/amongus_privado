@@ -1,4 +1,4 @@
-import { TIEMPOS, DISTANCIA, TAREAS_POR_JUGADOR, RED, ROLES, VELOCIDADES, configInicial, aspecto } from '../config.js';
+import { TIEMPOS, DISTANCIA, TAREAS_POR_JUGADOR, RED, ROLES, VELOCIDADES, MAX_POR_ROL, configInicial, aspecto } from '../config.js';
 import { TAREAS, PASADIZOS, FUSIBLES, MESA, ASIENTOS, puntoInicio, salaEn } from '../mundo/mapa.js';
 import { hayLinea } from '../mundo/colision.js';
 import Bots from './bots.js';
@@ -31,11 +31,13 @@ export default class Partida {
     this.alTerminar = alTerminar;
     this.numAsesinos = config.asesinos || 1;
     this.velocidad = VELOCIDADES.includes(config.velocidad) ? config.velocidad : 1;
-    this.probRoles = { ...configInicial().roles, ...(config.roles || {}) };
+    this.cantidadRoles = { ...configInicial().roles, ...(config.roles || {}) };
     this.ahora = 0;
     this.fase = 'juego';
     this.cuerpos = [];
-    this.camara = null;
+    this.camaras = [];
+    this.idCamara = 0;
+    this.daltonismo = null;
     this.luces = { apagadas: false, tiempo: 0 };
     this.reunion = null;
     this.esperaCampana = TIEMPOS.esperaCampana;
@@ -74,8 +76,9 @@ export default class Partida {
           bateria: TIEMPOS.bateriaMedico,
           viendoVitales: false,
           casos: [],
-          camaraPuesta: false,
-          foto: null,
+          camaraRonda: false,
+          fotos: [],
+          cdDaltonico: TIEMPOS.primerDaltonico,
           juezUsado: false,
           enPasadizo: -1
         }
@@ -93,17 +96,19 @@ export default class Partida {
     const maxAsesinos = lista.length >= 12 ? 3 : lista.length >= 7 ? 2 : 1;
     const n = Math.max(1, Math.min(this.numAsesinos, maxAsesinos));
     lista.slice(0, n).forEach((j) => (j.rol = 'asesino'));
-    // Roles especiales: cada jugador recibe como mucho uno de su equipo y cada rol sale una sola vez
-    const usados = new Set();
-    for (const j of barajar(this.lista)) {
-      const posibles = barajar(Object.entries(ROLES).filter(([id, r]) => r.equipo === j.rol && !usados.has(id)));
-      for (const [id] of posibles) {
-        if (Math.random() * 100 < (this.probRoles[id] || 0)) {
-          j.subrol = id;
-          usados.add(id);
-          break;
-        }
+    // Roles especiales: se arma una bolsa de cupos (p. ej. 3 médicos, 2 camarógrafos) y se reparte
+    // al azar entre los jugadores de cada equipo; cada jugador recibe como mucho uno.
+    for (const equipo of ['inocente', 'asesino']) {
+      const cupos = [];
+      for (const [id, r] of Object.entries(ROLES)) {
+        if (r.equipo !== equipo) continue;
+        const n = Math.max(0, Math.min(MAX_POR_ROL[equipo], this.cantidadRoles[id] | 0));
+        for (let k = 0; k < n; k++) cupos.push(id);
       }
+      const miembros = barajar(this.lista.filter((j) => j.rol === equipo));
+      barajar(cupos).forEach((id, i) => {
+        if (miembros[i]) miembros[i].subrol = id;
+      });
     }
     this.lista.forEach((j, i) => {
       j.tareas = barajar(TAREAS).slice(0, TAREAS_POR_JUGADOR).map((t) => t.id);
@@ -185,25 +190,39 @@ export default class Partida {
         this.investigar(j, this.jugadores.get(msg.objetivo), msg.caso | 0);
         break;
       case 'camara':
-        if (this.fase === 'juego' && j.subrol === 'camarografo' && j.vivo && !j.camaraPuesta && !this.camara) {
-          j.camaraPuesta = true;
-          this.camara = { x: j.x, y: j.y, sala: salaEn(j.x, j.y), duenio: j.id, visible: false, foto: null };
-          this.enviar(j.id, { t: 'aviso', tipo: 'camaraPuesta', x: j.x, y: j.y, sala: this.camara.sala });
+        // Una cámara por ronda (se renueva después de cada reunión)
+        if (this.fase === 'juego' && j.subrol === 'camarografo' && j.vivo && !j.camaraRonda) {
+          j.camaraRonda = true;
+          const c = { id: ++this.idCamara, x: j.x, y: j.y, sala: salaEn(j.x, j.y), duenio: j.id, visible: false, foto: null };
+          this.camaras.push(c);
+          this.enviar(j.id, { t: 'aviso', tipo: 'camaraPuesta', id: c.id, x: c.x, y: c.y, sala: c.sala });
         }
         break;
-      case 'recoger':
-        if (this.fase === 'juego' && j.vivo && this.camara && this.camara.visible && dist(j, this.camara) <= DISTANCIA.usar + 12) {
-          j.foto = this.camara.foto || { vacia: true, sala: this.camara.sala };
-          this.camara = null;
-          this.enviar(j.id, { t: 'foto', foto: j.foto });
-        }
+      case 'recoger': {
+        if (this.fase !== 'juego' || !j.vivo) return;
+        const c = this.camaras.find((x) => x.id === msg.id && x.visible && dist(j, x) <= DISTANCIA.usar + 12);
+        if (!c) return;
+        const foto = c.foto || { vacia: true, sala: c.sala };
+        j.fotos.push(foto);
+        this.camaras = this.camaras.filter((x) => x !== c);
+        this.enviar(j.id, { t: 'foto', foto });
         break;
+      }
       case 'mostrarFoto':
-        if (this.fase === 'reunion' && j.vivo && j.foto) {
-          const foto = j.foto;
-          j.foto = null;
-          this.anunciar({ t: 'chat', de: j.id, foto, muerto: false });
-          this.bots.alFoto(foto);
+        if (this.fase === 'reunion' && j.vivo && j.fotos.length) {
+          const fotos = j.fotos;
+          j.fotos = [];
+          for (const foto of fotos) {
+            this.anunciar({ t: 'chat', de: j.id, foto, muerto: false });
+            this.bots.alFoto(foto);
+          }
+        }
+        break;
+      case 'daltonico':
+        if (this.fase === 'juego' && j.subrol === 'daltonico' && j.vivo && j.cdDaltonico <= 0 && !this.daltonismo) {
+          this.daltonismo = { tiempo: TIEMPOS.daltonismo, semilla: Math.floor(Math.random() * 1e9) };
+          j.cdDaltonico = TIEMPOS.enfriamientoDaltonico;
+          this.anunciar({ t: 'aviso', tipo: 'daltonismo', semilla: this.daltonismo.semilla });
         }
         break;
       case 'escudo': {
@@ -328,9 +347,11 @@ export default class Partida {
       d.casos.push({ victima: victima.id, sala: salaEn(victima.x, victima.y), posiciones, preguntas: [] });
       this.enviarCasos(d);
     }
-    const c = this.camara;
-    if (c && !c.foto && dist(c, victima) <= DISTANCIA.camara && hayLinea(c.x, c.y, victima.x, victima.y)) {
-      c.foto = { victima: victima.id, asesino: asesino.invisible > 0 ? null : this.apariencia(asesino), sala: salaEn(victima.x, victima.y) };
+    for (const c of this.camaras) {
+      if (c.foto || dist(c, victima) > DISTANCIA.camara || !hayLinea(c.x, c.y, victima.x, victima.y)) continue;
+      // Con el daltonismo activo la foto sale con los colores cambiados: no se reconoce a nadie
+      const reconocible = asesino.invisible <= 0 && !this.daltonismo;
+      c.foto = { victima: victima.id, asesino: reconocible ? this.apariencia(asesino) : null, sala: salaEn(victima.x, victima.y) };
     }
     this.bots.alMatar(asesino, victima);
   }
@@ -427,6 +448,7 @@ export default class Partida {
       j.viendoVitales = false;
       j.enPasadizo = -1;
     }
+    this.daltonismo = null;
     const victimas = [...this.cuerpos.map((c) => c.id), ...misteriosos];
     this.cuerpos = [];
     if (this.luces.apagadas) this.luces = { apagadas: false, tiempo: 0 };
@@ -535,7 +557,8 @@ export default class Partida {
     this.reunion = null;
     this.esperaCampana = TIEMPOS.esperaCampana;
     // La cámara escondida se vuelve visible después de la votación
-    if (this.camara) this.camara.visible = true;
+    for (const c of this.camaras) c.visible = true;
+    for (const j of this.lista) j.camaraRonda = false;
     for (const j of this.lista) {
       if (j.rol === 'asesino') j.cdMatar = Math.max(j.cdMatar, TIEMPOS.enfriamientoMatar * 0.6);
     }
@@ -623,6 +646,7 @@ export default class Partida {
           j.disfraz.tiempo -= dt;
           if (j.disfraz.tiempo <= 0) this.quitarDisfraz(j);
         } else j.cdDisfraz = Math.max(0, j.cdDisfraz - dt);
+        j.cdDaltonico = Math.max(0, j.cdDaltonico - dt);
         if (j.invisible > 0) {
           j.invisible -= dt;
           if (j.invisible <= 0) {
@@ -630,6 +654,13 @@ export default class Partida {
             this.anunciar({ t: 'aviso', tipo: 'esfumar', x: j.x, y: j.y });
           }
         } else j.cdInvisible = Math.max(0, j.cdInvisible - dt);
+      }
+      if (this.daltonismo) {
+        this.daltonismo.tiempo -= dt;
+        if (this.daltonismo.tiempo <= 0) {
+          this.daltonismo = null;
+          this.anunciar({ t: 'aviso', tipo: 'daltonismoFin' });
+        }
       }
       // Veneno: los cuerpos se desintegran
       for (const c of this.cuerpos) if (c.veneno > 0) c.veneno -= dt;
@@ -669,7 +700,9 @@ export default class Partida {
       case 'angel':
         return { cd: Math.ceil(j.cdEscudo) };
       case 'camarografo':
-        return { puesta: j.camaraPuesta };
+        return { puesta: j.camaraRonda };
+      case 'daltonico':
+        return { cd: Math.ceil(j.cdDaltonico), act: this.daltonismo ? Math.ceil(this.daltonismo.tiempo) : 0 };
       case 'juez':
         return { listo: !j.juezUsado && j.hechas.size >= j.tareas.length };
       default:
@@ -680,7 +713,8 @@ export default class Partida {
   enviarSnapshots() {
     const progreso = Math.round(this.progreso() * 1000) / 1000;
     const cuerpos = this.cuerpos.map((c) => [c.id, Math.round(c.x), Math.round(c.y), c.veneno > 0 ? Math.round((c.veneno / TIEMPOS.veneno) * 100) / 100 : 0]);
-    const camara = this.camara && this.camara.visible ? [Math.round(this.camara.x), Math.round(this.camara.y)] : 0;
+    const camaras = this.camaras.filter((c) => c.visible).map((c) => [c.id, Math.round(c.x), Math.round(c.y)]);
+    const daltonismo = this.daltonismo ? [Math.ceil(this.daltonismo.tiempo), this.daltonismo.semilla] : 0;
     const activos = this.lista.filter((j) => !j.desconectado);
     for (const r of this.lista) {
       if (r.bot || r.desconectado) continue;
@@ -699,7 +733,8 @@ export default class Partida {
         t: 's',
         j: filas,
         c: cuerpos,
-        cam: camara,
+        cam: camaras,
+        dal: daltonismo,
         p: progreso,
         l: this.luces.apagadas ? 1 : 0,
         f: this.fase,
@@ -713,7 +748,7 @@ export default class Partida {
           espC: Math.ceil(this.esperaCampana),
           rt: this.reunion ? Math.ceil(this.reunion.tiempo) : 0,
           inf: r.infectado > 0 ? Math.ceil(r.infectado) : 0,
-          foto: r.foto ? 1 : 0,
+          foto: r.fotos.length,
           pz: r.enPasadizo,
           h: this.habilidad(r)
         }

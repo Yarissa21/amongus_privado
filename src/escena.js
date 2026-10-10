@@ -1,6 +1,16 @@
 import Phaser from 'phaser';
 import { ALTO, ANCHO_MAX, TILE, VELOCIDAD, VELOCIDAD_FANTASMA, VISION, DISTANCIA, TIEMPOS, RED, NUM_ASPECTOS } from './config.js';
-import { ANCHO_MAPA, ALTO_MAPA, MUEBLES, TAREAS, PASADIZOS, FUSIBLES, MESA, POZO, salaEn } from './mundo/mapa.js';
+
+// Una cámara de vigilancia por cuarto (centro del cuarto)
+const CAMARAS_CASA = SALAS.map((s) => ({ nombre: s.nombre, x: (s.x + s.w / 2) * 16, y: (s.y + s.h / 2) * 16 }));
+
+// Número pseudoaleatorio estable a partir de un texto (para el daltonismo)
+function hashTexto(t, semilla) {
+  let h = semilla | 0;
+  for (const c of String(t)) h = (Math.imul(h ^ c.charCodeAt(0), 2654435761) >>> 0) ^ (h >>> 13);
+  return h >>> 0;
+}
+import { ANCHO_MAPA, ALTO_MAPA, MUEBLES, TAREAS, PASADIZOS, FUSIBLES, MESA, POZO, MONITORES, SALAS, salaEn } from './mundo/mapa.js';
 import { TIPOS_MUEBLE, mover, hayLinea, bloqueaVista } from './mundo/colision.js';
 import { dibujarSuelo } from './graficos/suelo.js';
 import { dibujarMuebles } from './graficos/muebles.js';
@@ -66,8 +76,7 @@ export default class EscenaMundo extends Phaser.Scene {
     this.flecha = this.add.image(0, 0, 'flecha').setScrollFactor(0).setDepth(9500).setVisible(false);
 
     this.teclas = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,F,C,V,M,L', false);
-    this.camaraImg = this.add.image(0, 0, 'camara').setOrigin(0.5, 1).setVisible(false);
-    this.miCamaraImg = this.add.image(0, 0, 'camara').setOrigin(0.5, 1).setVisible(false).setAlpha(0.5);
+    this.imagenesCamara = [];
     this.gritos = [];
     this.joystick = { x: 0, y: 0 };
     this.fondo = { t: 0 };
@@ -224,8 +233,11 @@ export default class EscenaMundo extends Phaser.Scene {
     this.cuerposVistos = new Set();
     this.casos = [];
     this.yo.casos = this.casos;
-    this.camaraPos = null;
-    this.miCamara = null;
+    this.camarasVisibles = [];
+    this.misCamaras = [];
+    this.camarasVistasAlguna = new Set();
+    this.daltonismo = null;
+    this.vigilando = null;
     this.ultimoInf = 0;
     this.relojPos = 0;
     this.ultimaSala = null;
@@ -257,10 +269,8 @@ export default class EscenaMundo extends Phaser.Scene {
       g.flecha.destroy();
     }
     this.gritos = [];
-    if (this.camaraImg) {
-      this.camaraImg.setVisible(false);
-      this.miCamaraImg.setVisible(false);
-    }
+    for (const img of this.imagenesCamara || []) img.setVisible(false);
+    this.salirCamaras && this.vigilando != null && this.salirCamaras();
   }
 
   detener() {
@@ -335,9 +345,11 @@ export default class EscenaMundo extends Phaser.Scene {
         }
         if (msg.tipo === 'grito' && msg.id !== this.yo.id) this.agregarGrito(msg.x, msg.y);
         if (msg.tipo === 'escudoRoto') this.esquirlas(msg.x, msg.y);
-        if (msg.tipo === 'camaraPuesta') this.miCamara = { x: msg.x, y: msg.y };
+        if (msg.tipo === 'camaraPuesta') this.misCamaras.push({ id: msg.id, x: msg.x, y: msg.y });
+        if (msg.tipo === 'daltonismo') sonar('pasadizo');
         break;
       case 'reunion':
+        if (this.vigilando != null) this.salirCamaras();
         this.enReunion = true;
         break;
       case 'reanudar':
@@ -389,8 +401,13 @@ export default class EscenaMundo extends Phaser.Scene {
         img.alfaBase = 0.25 + veneno * 0.75;
       }
     }
-    this.camaraPos = s.cam ? { x: s.cam[0], y: s.cam[1] } : null;
-    if (this.camaraPos) this.miCamara = null;
+    this.camarasVisibles = (s.cam || []).map(([id, x, y]) => ({ id, x, y }));
+    const visibles = new Set(this.camarasVisibles.map((c) => c.id));
+    // Mis cámaras escondidas dejan de mostrarse transparentes cuando ya son visibles (o alguien las recogió)
+    if (this.estado.fase === 'juego' && !this.enReunion) this.misCamaras = this.misCamaras.filter((c) => !visibles.has(c.id) && !this.camarasVistasAlguna?.has(c.id));
+    this.camarasVistasAlguna = this.camarasVistasAlguna || new Set();
+    visibles.forEach((id) => this.camarasVistasAlguna.add(id));
+    this.daltonismo = s.dal ? { semilla: s.dal[1] } : null;
     for (const [id, img] of this.cuerpos) {
       if (!ids.has(id)) {
         img.destroy();
@@ -403,7 +420,26 @@ export default class EscenaMundo extends Phaser.Scene {
 
   puedeMover() {
     const panel = this.enlace.ui.minijuegos.abierto;
-    return this.enJuego && !panel && !this.enReunion && this.estado.fase === 'juego' && this.time.now >= this.bloqueadoHasta;
+    return this.enJuego && !panel && this.vigilando == null && !this.enReunion && this.estado.fase === 'juego' && this.time.now >= this.bloqueadoHasta;
+  }
+
+  // ---------- Sala de cámaras ----------
+
+  verCamaras(i) {
+    const n = CAMARAS_CASA.length;
+    this.vigilando = ((i % n) + n) % n;
+    const c = CAMARAS_CASA[this.vigilando];
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    cam.centerOn(c.x, c.y);
+    this.enlace.ui.mostrarCamaras(c.nombre, this.vigilando + 1, n, this.estado.luces);
+  }
+
+  salirCamaras() {
+    this.vigilando = null;
+    this.enlace.ui.mostrarCamaras(null);
+    const v = this.yo && this.vistas.get(this.yo.id);
+    if (v && this.enJuego && !this.cinematica) this.cameras.main.startFollow(v.spr, true, 1, 1, 0, -10);
   }
 
   candidatoUsar() {
@@ -429,8 +465,13 @@ export default class EscenaMundo extends Phaser.Scene {
       const d = dist(yo, FUSIBLES);
       if (d <= DISTANCIA.usar + 6) considerar({ tipo: 'fusibles', nombre: 'Fusibles' }, d);
     }
-    if (yo.vivo && this.camaraPos && dist(yo, this.camaraPos) <= DISTANCIA.usar + 8) {
-      considerar({ tipo: 'camara', nombre: 'Cámara' }, dist(yo, this.camaraPos));
+    if (yo.vivo) {
+      for (const c of this.camarasVisibles) {
+        const d = dist(yo, c);
+        if (d <= DISTANCIA.usar + 8) considerar({ tipo: 'camara', id: c.id, nombre: 'Cámara' }, d);
+      }
+      const dm = dist(yo, MONITORES);
+      if (dm <= DISTANCIA.usar + 8) considerar({ tipo: 'monitores', nombre: 'Cámaras' }, dm);
     }
     if (yo.vivo && distanciaAMesa(yo) <= DISTANCIA.campana) {
       considerar({ tipo: 'campana', nombre: 'Campana', espera: this.estado.yo.espC, quedan: this.estado.yo.camp }, distanciaAMesa(yo) + 4);
@@ -462,6 +503,13 @@ export default class EscenaMundo extends Phaser.Scene {
   }
 
   accion(nombre) {
+    // Viendo las cámaras solo se puede cambiar de cámara o salir
+    if (this.vigilando != null) {
+      if (nombre === 'camAnt') this.verCamaras(this.vigilando - 1);
+      else if (nombre === 'camSig') this.verCamaras(this.vigilando + 1);
+      else if (nombre === 'camSalir' || nombre === 'usar') this.salirCamaras();
+      return;
+    }
     if (!this.puedeMover()) return;
     const yo = this.yo;
     // Dentro de un pasadizo solo se puede cambiar de salida o salir
@@ -490,7 +538,9 @@ export default class EscenaMundo extends Phaser.Scene {
           if (exito && this.estado.luces) this.enlace.enviar({ t: 'arreglar' });
         });
       } else if (c.tipo === 'camara') {
-        this.enlace.enviar({ t: 'recoger' });
+        this.enlace.enviar({ t: 'recoger', id: c.id });
+      } else if (c.tipo === 'monitores') {
+        this.verCamaras(0);
       } else if (c.tipo === 'pasadizo') {
         sonar('pasadizo');
         this.enlace.enviar({ t: 'pasadizo', accion: 'entrar', i: c.i });
@@ -542,6 +592,11 @@ export default class EscenaMundo extends Phaser.Scene {
     let dy = 0;
     const escribiendo = document.activeElement && document.activeElement.tagName === 'INPUT';
     if (!escribiendo && Phaser.Input.Keyboard.JustDown(t.M) && !this.enReunion) this.enlace.ui.mapa.alternar();
+    if (this.vigilando != null && !escribiendo) {
+      if (Phaser.Input.Keyboard.JustDown(t.A) || Phaser.Input.Keyboard.JustDown(t.LEFT)) this.accion('camAnt');
+      if (Phaser.Input.Keyboard.JustDown(t.D) || Phaser.Input.Keyboard.JustDown(t.RIGHT)) this.accion('camSig');
+      if (Phaser.Input.Keyboard.JustDown(t.E) || Phaser.Input.Keyboard.JustDown(t.SPACE)) this.accion('camSalir');
+    }
     if (this.puedeMover() && this.enPasadizo()) {
       if (!escribiendo) {
         if (Phaser.Input.Keyboard.JustDown(t.A) || Phaser.Input.Keyboard.JustDown(t.LEFT)) this.accion('pzAnterior');
@@ -623,23 +678,30 @@ export default class EscenaMundo extends Phaser.Scene {
         v.y += (v.objetivo.y - v.y) * k;
       }
       let visible = v.presente;
-      if (visible && this.yo.vivo) visible = v.vivo && dist(v, this.yo) <= radio * 0.9 && hayLinea(this.yo.x, this.yo.y, v.x, v.y);
+      if (visible && this.vigilando != null) visible = (v.vivo || !this.yo.vivo) && !this.estado.luces && this.cameras.main.worldView.contains(v.x, v.y - 8);
+      else if (visible && this.yo.vivo) visible = v.vivo && dist(v, this.yo) <= radio * 0.9 && hayLinea(this.yo.x, this.yo.y, v.x, v.y);
       v.spr.setVisible(visible);
       v.sombra.setVisible(visible && v.vivo);
       v.nombre.setVisible(visible);
       if (visible) this.actualizarVista(v, v, dt);
     }
-    const seVe = (p) => !this.yo.vivo || (dist(p, this.yo) <= radio * 0.9 && hayLinea(this.yo.x, this.yo.y, p.x, p.y));
+    const seVe = (p) =>
+      this.vigilando != null
+        ? !this.estado.luces && this.cameras.main.worldView.contains(p.x, p.y)
+        : !this.yo.vivo || (dist(p, this.yo) <= radio * 0.9 && hayLinea(this.yo.x, this.yo.y, p.x, p.y));
     for (const img of this.cuerpos.values()) {
       img.setVisible(seVe({ x: img.x, y: img.y - 2 }));
       if (img.alfaBase) img.setAlpha(img.alfaBase);
     }
-    if (this.camaraPos) {
-      this.camaraImg.setPosition(this.camaraPos.x, this.camaraPos.y).setDepth(this.camaraPos.y - 4);
-      this.camaraImg.setVisible(seVe(this.camaraPos));
-    } else this.camaraImg.setVisible(false);
-    if (this.miCamara) this.miCamaraImg.setPosition(this.miCamara.x, this.miCamara.y).setDepth(this.miCamara.y - 4).setVisible(true);
-    else this.miCamaraImg.setVisible(false);
+    // Cámaras: visibles (cualquiera puede recogerlas) y las mías aún escondidas (transparentes)
+    const lista = [...this.camarasVisibles.map((c) => ({ ...c, mia: false })), ...this.misCamaras.map((c) => ({ ...c, mia: true }))];
+    while (this.imagenesCamara.length < lista.length) this.imagenesCamara.push(this.add.image(0, 0, 'camara').setOrigin(0.5, 1));
+    this.imagenesCamara.forEach((img, i) => {
+      const c = lista[i];
+      if (!c) return img.setVisible(false);
+      img.setPosition(c.x, c.y).setDepth(c.y - 4).setAlpha(c.mia ? 0.5 : 1);
+      img.setVisible(c.mia || seVe(c));
+    });
     this.actualizarGritos();
     const ahora = this.time.now / 1000;
     for (const [id, b] of this.burbujas) {
@@ -652,14 +714,17 @@ export default class EscenaMundo extends Phaser.Scene {
   actualizarVista(v, datos, dt) {
     // Cambiaformas: se dibuja con el color y el nombre de quien imita
     const look = v.apariencia || v.id;
-    if (v.lookId !== look) {
+    const confundido = this.daltonismo && this.yo.vivo;
+    const claveLook = confundido ? `dal${this.daltonismo.semilla}` : look;
+    if (v.lookId !== claveLook) {
       const info = this.jugadoresInfo.get(look) || this.jugadoresInfo.get(v.id);
-      v.lookId = look;
+      v.lookId = claveLook;
       v.color = info.color;
-      v.aspecto = info.aspecto;
-      v.spr.setTexture(`pj_${info.aspecto}`, 0);
+      v.aspecto = confundido ? hashTexto(v.id, this.daltonismo.semilla) % NUM_ASPECTOS : info.aspecto;
+      v.spr.setTexture(`pj_${v.aspecto}`, 0);
       v.nombre.setText(textoFuente(info.nombre));
     }
+    v.nombre.setVisible(v.spr.visible && !confundido);
     const x = Math.round(v.x);
     const y = Math.round(v.y);
     v.spr.setPosition(x, y + 2);
@@ -748,6 +813,9 @@ export default class EscenaMundo extends Phaser.Scene {
       case 'fantasma':
         if (yo.vivo && h.cd <= 0 && !h.act) this.enlace.enviar({ t: 'invisible' });
         break;
+      case 'daltonico':
+        if (yo.vivo && h.cd <= 0 && !h.act) this.enlace.enviar({ t: 'daltonico' });
+        break;
     }
   }
 
@@ -766,6 +834,8 @@ export default class EscenaMundo extends Phaser.Scene {
         return !yo.vivo ? { visible: true, activo: h.cd <= 0, texto: 'Escudo', cd: h.cd > 0 ? h.cd : '' } : oculto;
       case 'fantasma':
         return yo.vivo ? { visible: true, activo: h.cd <= 0 && !h.act, texto: h.act > 0 ? 'Invisible' : 'Esfumarse', cd: h.act > 0 ? h.act : h.cd > 0 ? h.cd : '' } : oculto;
+      case 'daltonico':
+        return yo.vivo ? { visible: true, activo: h.cd <= 0 && !h.act, texto: 'Daltonismo', cd: h.act > 0 ? h.act : h.cd > 0 ? h.cd : '' } : oculto;
       default:
         return oculto;
     }
@@ -941,7 +1011,7 @@ export default class EscenaMundo extends Phaser.Scene {
   dibujarOscuridad() {
     const rt = this.oscuridad;
     rt.clear();
-    if (!this.yo.vivo || this.cinematica) return;
+    if (!this.yo.vivo || this.cinematica || this.vigilando != null) return;
     const radio = this.radioVision();
     const cam = this.cameras.main;
     const ox = this.yo.x;
@@ -1050,6 +1120,10 @@ export default class EscenaMundo extends Phaser.Scene {
         this.ultimoInf = inf;
       }
       if (ui.minijuegos.id === 'vitales' && ui.minijuegos.abierto) ui.actualizarVitales(this.estado.yo.h);
+      if (this.vigilando != null) {
+        const c = CAMARAS_CASA[this.vigilando];
+        ui.mostrarCamaras(c.nombre, this.vigilando + 1, CAMARAS_CASA.length, this.estado.luces);
+      }
       const pz = this.enPasadizo() && !this.enReunion ? PASADIZOS[this.estado.yo.pz] : null;
       ui.mostrarPasadizo(pz ? pz.nombre : null);
       const sala = salaEn(this.yo.x, this.yo.y);
@@ -1063,7 +1137,7 @@ export default class EscenaMundo extends Phaser.Scene {
         usar: usar
           ? {
               activo: usar.tipo !== 'campana' || (usar.quedan > 0 && usar.espera <= 0),
-              texto: usar.tipo === 'tarea' ? 'Tarea' : usar.tipo === 'campana' ? 'Campana' : usar.tipo === 'pasadizo' ? 'Pasadizo' : usar.tipo === 'camara' ? 'Recoger' : 'Arreglar',
+              texto: usar.tipo === 'tarea' ? 'Tarea' : usar.tipo === 'campana' ? 'Campana' : usar.tipo === 'pasadizo' ? 'Pasadizo' : usar.tipo === 'camara' ? 'Recoger' : usar.tipo === 'monitores' ? 'Cámaras' : 'Arreglar',
               cd: usar.tipo === 'campana' && usar.espera > 0 ? usar.espera : usar.tipo === 'campana' && usar.quedan <= 0 ? '✕' : ''
             }
           : { activo: false, texto: 'Usar', cd: '' },
