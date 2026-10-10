@@ -221,8 +221,8 @@ export default class UI {
     const n = red.jugadores.length;
     const humanos = red.jugadores.filter((j) => !j.bot).length;
     $('sala-contador').textContent = `Jugadores ${n}/${MAX_JUGADORES}` + (red.local ? '' : ` · ${humanos} ${humanos === 1 ? 'persona' : 'personas'}`);
-    const roles = Object.keys(ROLES).filter((id) => (red.config.roles?.[id] ?? 0) > 0).length;
-    $('sala-ajustes-resumen').textContent = `⚙ Ajustes · ${red.config.asesinos} asesino${red.config.asesinos > 1 ? 's' : ''} · ${red.config.velocidad}x · ${roles} roles`;
+    const roles = Object.keys(ROLES).reduce((n, id) => n + (red.config.roles?.[id] ?? 0), 0);
+    $('sala-ajustes-resumen').textContent = `⚙ Ajustes · ${red.config.asesinos} asesino${red.config.asesinos > 1 ? 's' : ''} · ${red.config.velocidad}x · ${roles} cupos de rol`;
     $('sala-iniciar').disabled = n < MIN_JUGADORES;
     $('sala-mas-bot').disabled = n >= MAX_JUGADORES;
     $('sala-menos-bot').disabled = !red.jugadores.some((j) => j.bot);
@@ -264,11 +264,11 @@ export default class UI {
     fila('Velocidad', `${c.velocidad}x`, () => this.ctrl.cambiarVelocidad(-1), () => this.ctrl.cambiarVelocidad(1), 'Velocidad de caminado de todos');
     const titulo = document.createElement('div');
     titulo.className = 'ajuste-titulo';
-    titulo.textContent = 'Roles especiales (probabilidad)';
+    titulo.textContent = 'Roles especiales (cuántos jugadores)';
     cont.appendChild(titulo);
     for (const [id, r] of Object.entries(ROLES)) {
       const equipo = r.equipo === 'asesino' ? '<i class="etiqueta etiqueta-roja">Asesino</i>' : '<i class="etiqueta etiqueta-verde">Inocente</i>';
-      fila(`${escapar(r.nombre)} ${equipo}`, `${c.roles?.[id] ?? r.probabilidad}%`, () => this.ctrl.cambiarProbabilidad(id, -10), () => this.ctrl.cambiarProbabilidad(id, 10), r.descripcion);
+      fila(`${escapar(r.nombre)} ${equipo}`, String(c.roles?.[id] ?? r.cantidad), () => this.ctrl.cambiarCantidad(id, -1), () => this.ctrl.cambiarCantidad(id, 1), r.descripcion);
     }
   }
 
@@ -301,6 +301,12 @@ export default class UI {
       const escena = this.ctrl.escena;
       if (escena && escena.enJuego) this.abrirLibreta(escena.casos);
     };
+    document.querySelectorAll('[data-camara]').forEach((b) => {
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.ctrl.accion(b.dataset.camara);
+      });
+    });
     document.querySelectorAll('[data-pasadizo]').forEach((b) => {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -843,6 +849,19 @@ export default class UI {
         area.appendChild(caso);
       });
     });
+  }
+
+  // Visor de la sala de cámaras
+  mostrarCamaras(nombre, numero, total, sinSenal) {
+    const firma = nombre ? `${nombre}|${numero}|${sinSenal}` : '';
+    if (firma === this.firmaCamaras) return;
+    this.firmaCamaras = firma;
+    $('hud-camaras').hidden = !nombre;
+    document.body.classList.toggle('viendo-camaras', !!nombre);
+    if (!nombre) return;
+    $('visor-nombre').textContent = nombre;
+    $('visor-numero').textContent = `CAM ${numero}/${total}`;
+    $('visor-sin-senal').hidden = !sinSenal;
   }
 
   mostrarPasadizo(lugar) {

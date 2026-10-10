@@ -5,7 +5,7 @@ import { TILE } from '../config.js';
 // 'w' madera (biblioteca), 'r' madera clara (dormitorio), 'b' azulejo (baño), 'j' goma de colores (cuarto de juegos),
 // '.' parquet (pasillo), 'k' cocina, 'c' sala, 'v' alfombra del comedor, 'e' madera oscura (estudio),
 // 'l' baldosa (lavandería), 'n' mármol (vestíbulo), 'i' terracota (invernadero), 'x' concreto (garaje),
-// 'o' madera dorada (sala de música), 'z' paño verde (billar), 'q' piedra (bodega), 't' tierra (cementerio),
+// 's' baldosa oscura (sala de cámaras), 'o' madera dorada (sala de música), 'z' paño verde (billar), 'q' piedra (bodega), 't' tierra (cementerio),
 // 'a' alfombra roja, 'm' tapete de entrada, 'g' pasto, 'p' camino, 'f' flores.
 export const ANCHO_MAPA = 81;
 export const ALTO_MAPA = 48;
@@ -31,7 +31,8 @@ function construir() {
   rect(15, 26, 16, 8, 'n');
   rect(32, 26, 13, 8, 'i');
   rect(46, 26, 17, 8, 'x');
-  rect(64, 26, 16, 8, 'q');
+  rect(64, 26, 9, 8, 'q');
+  rect(74, 26, 6, 8, 's');
   rect(0, 35, 81, 13, 'H');
   rect(1, 35, 79, 12, 'g');
 
@@ -46,6 +47,8 @@ function construir() {
   rect(71, 25, 2, 1, 'q');
   rect(63, 29, 1, 2, 'q');
   rect(71, 34, 2, 1, 'q');
+  rect(73, 29, 1, 2, 's');
+  rect(76, 25, 2, 1, 's');
   rect(14, 18, 1, 2, 'c');
   rect(31, 18, 1, 2, 'c');
   rect(45, 18, 1, 2, 'e');
@@ -101,7 +104,8 @@ export const SALAS = [
   { nombre: 'Vestíbulo', x: 15, y: 25, w: 16, h: 10 },
   { nombre: 'Invernadero', x: 31, y: 25, w: 14, h: 9 },
   { nombre: 'Garaje', x: 45, y: 25, w: 18, h: 10 },
-  { nombre: 'Bodega', x: 63, y: 25, w: 17, h: 10 },
+  { nombre: 'Bodega', x: 63, y: 25, w: 10, h: 10 },
+  { nombre: 'Sala de cámaras', x: 73, y: 25, w: 8, h: 10 },
   { nombre: 'Cementerio', x: 59, y: 41, w: 18, h: 6 },
   { nombre: 'Jardín', x: 0, y: 34, w: 81, h: 14 }
 ];
@@ -235,10 +239,14 @@ export const MUEBLES = [
   { tipo: 'estanteVino', tx: 65, ty: 26 },
   { tipo: 'barril', tx: 69, ty: 26 },
   { tipo: 'barril', tx: 70, ty: 26 },
-  { tipo: 'estanteVino', tx: 75, ty: 26 },
-  { tipo: 'barril', tx: 77, ty: 31 },
-  { tipo: 'barril', tx: 78, ty: 31 },
-  { tipo: 'cajas', tx: 65, ty: 31 },
+  { tipo: 'barril', tx: 64, ty: 31 },
+  { tipo: 'barril', tx: 69, ty: 31 },
+  { tipo: 'cajas', tx: 66, ty: 31 },
+  // Sala de cámaras
+  { tipo: 'monitores', tx: 74, ty: 26 },
+  { tipo: 'sillaAtras', tx: 75, ty: 28 },
+  { tipo: 'lampara', tx: 79, ty: 26 },
+  { tipo: 'planta', tx: 79, ty: 31 },
   // Jardín
   { tipo: 'pozo', tx: 6, ty: 36 },
   { tipo: 'casaPerro', tx: 39, ty: 36 },
@@ -313,13 +321,16 @@ export const PASADIZOS = [
   { nombre: 'Dormitorio', ...centro(29, 3) },
   { nombre: 'Cuarto de juegos', ...centro(58, 5) },
   { nombre: 'Sala de música', ...centro(77, 5) },
-  { nombre: 'Bodega', ...centro(78, 28) },
+  { nombre: 'Bodega', ...centro(68, 30) },
   { nombre: 'Estudio', ...centro(47, 16) },
   { nombre: 'Sala', ...centro(16, 16) },
   { nombre: 'Cocina', ...centro(12, 16) }
 ];
 
 export const FUSIBLES = { ...centro(30, 10), tx: 30, ty: 9 };
+
+// Consola de la sala de cámaras (desde aquí se ve cada cuarto de la casa)
+export const MONITORES = centro(75, 29);
 
 // Mesa del comedor: campana de emergencia y asientos para las reuniones.
 export const MESA = { x: 35 * TILE, y: 17 * TILE, w: 4 * TILE, h: 2 * TILE };

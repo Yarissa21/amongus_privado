@@ -60,7 +60,8 @@ export const TIPOS_MUEBLE = {
   barril: { w: 16, h: 24, solido: [1, 8, 14, 16] },
   lapida: { w: 16, h: 16, solido: [2, 6, 12, 10] },
   fuente: { w: 48, h: 40, solido: [2, 14, 44, 24] },
-  arbolSeco: { w: 32, h: 48, solido: [11, 36, 10, 10] }
+  arbolSeco: { w: 32, h: 48, solido: [11, 36, 10, 10] },
+  monitores: { w: 48, h: 32, solido: [0, 12, 48, 18] }
 };
 
 const SOLIDOS = MUEBLES.filter((m) => TIPOS_MUEBLE[m.tipo].solido).map((m) => {

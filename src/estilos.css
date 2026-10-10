@@ -2268,3 +2268,72 @@ select:focus {
 .caja-sala > * {
   flex-shrink: 0;
 }
+
+/* Visor de la sala de cámaras */
+.visor-camaras {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.visor-lineas {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px);
+  box-shadow: inset 0 0 120px rgba(0, 20, 10, 0.75);
+  mix-blend-mode: multiply;
+}
+
+.visor-sin-senal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--titulo);
+  font-size: 22px;
+  color: #ffffff;
+  background: repeating-linear-gradient(0deg, #ccc 0 2px, #444 2px 4px);
+  animation: ruido 0.15s steps(2) infinite;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.visor-cabecera {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(10, 10, 16, 0.75);
+  border: 2px solid #48e060;
+  color: #c8ffd0;
+  font-family: var(--titulo);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.visor-rec {
+  color: #ff4848;
+  animation: latir 1s infinite;
+}
+
+.visor-botones {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.visor-botones .boton {
+  font-size: 10px;
+  padding: 10px 14px;
+}
+
+/* Mientras se ven las cámaras se ocultan los botones de acción */
+body.viendo-camaras .acciones,
+body.viendo-camaras .joystick {
+  display: none !important;
+}

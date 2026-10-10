@@ -142,7 +142,7 @@ export default class Bots {
         j.dir = DIR.arriba;
         e.espera = TIEMPOS.tarea + 0.5 + Math.random() * 2.5;
         e.alEsperar = () => {
-          if (j.subrol === 'camarografo' && !j.camaraPuesta && p.ahora > 20 && Math.random() < 0.5) p.recibir(j.id, { t: 'camara' });
+          if (j.subrol === 'camarografo' && !j.camaraRonda && Math.random() < 0.4) p.recibir(j.id, { t: 'camara' });
           if (j.rol === 'inocente') p.recibir(j.id, { t: 'tarea', tarea: meta.id });
           else e.tareasFalsas = e.tareasFalsas.filter((id) => id !== meta.id);
         };
@@ -151,7 +151,7 @@ export default class Bots {
         p.recibir(j.id, { t: 'reportar' });
         break;
       case 'camara':
-        p.recibir(j.id, { t: 'recoger' });
+        p.recibir(j.id, { t: 'recoger', id: meta.id });
         break;
       case 'fusibles':
         e.espera = TIEMPOS.arreglarLuces + 0.2;
@@ -220,11 +220,11 @@ export default class Bots {
     }
 
     // Cámara visible: cualquiera la recoge (el asesino para esconder la foto)
-    const cam = p.camara;
-    if (cam && cam.visible && (!e.meta || e.meta.tipo !== 'camara') && !e.cazando && this.puedeVer(j, cam) && Math.random() < 0.4) {
+    const cam = p.camaras.find((c) => c.visible && this.puedeVer(j, c));
+    if (cam && (!e.meta || e.meta.tipo !== 'camara') && !e.cazando && Math.random() < 0.4) {
       e.espera = 0;
       e.alEsperar = null;
-      this.irA(j, e, cam.x, cam.y, { tipo: 'camara' });
+      this.irA(j, e, cam.x, cam.y, { tipo: 'camara', id: cam.id });
       return;
     }
 
@@ -257,6 +257,7 @@ export default class Bots {
           if (otros.length) p.recibir(j.id, { t: 'disfraz', objetivo: elegir(otros).id });
         }
         if (j.subrol === 'fantasma' && j.cdInvisible <= 0 && !j.invisible) p.recibir(j.id, { t: 'invisible' });
+        if (j.subrol === 'daltonico' && j.cdDaltonico <= 0) p.recibir(j.id, { t: 'daltonico' });
         e.cazando = v.id;
         e.repath = 0;
         e.espera = 0;
@@ -310,7 +311,8 @@ export default class Bots {
       const veAsesino = this.puedeVer(j, asesino);
       if (veAsesino || this.puedeVer(j, victima)) {
         const visto = this.partida.apariencia(asesino);
-        e.testigo = veAsesino && visto !== victima.id && visto !== j.id ? { asesino: visto, victima: victima.id } : null;
+        // Con el daltonismo nadie reconoce al asesino
+        e.testigo = veAsesino && !this.partida.daltonismo && visto !== victima.id && visto !== j.id ? { asesino: visto, victima: victima.id } : null;
         if (Math.random() < 0.85) {
           e.espera = 0.4;
           e.alEsperar = null;
@@ -334,7 +336,7 @@ export default class Bots {
       e.cazando = null;
       e.agenda = [];
       if (!j.vivo) continue;
-      if (j.foto && j.rol === 'inocente') e.agenda.push({ t: TIEMPOS.reunion - 3, f: () => p.recibir(j.id, { t: 'mostrarFoto' }) });
+      if (j.fotos.length && j.rol === 'inocente') e.agenda.push({ t: TIEMPOS.reunion - 3, f: () => p.recibir(j.id, { t: 'mostrarFoto' }) });
       const decir = (t, texto) => e.agenda.push({ t: TIEMPOS.reunion - t, f: () => p.recibir(j.id, { t: 'chat', texto }) });
       const nombre = (id) => p.jugadores.get(id)?.nombre || '?';
       const victima = reunion.victima ? nombre(reunion.victima) : null;

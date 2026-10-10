@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import './estilos.css';
-import { ANCHO, ALTO, ANCHO_MIN, ANCHO_MAX, MAX_JUGADORES, VELOCIDADES, ROLES } from './config.js';
+import { ANCHO, ALTO, ANCHO_MIN, ANCHO_MAX, MAX_JUGADORES, VELOCIDADES, ROLES, MAX_POR_ROL } from './config.js';
 import SalaLocal from './red/salaLocal.js';
 import Voz from './red/voz.js';
 import { hayLinea } from './mundo/colision.js';
@@ -186,11 +186,13 @@ class Control {
     red.enviarLobby();
   }
 
-  cambiarProbabilidad(rol, paso) {
+  // Cuántos jugadores tendrán cada rol (p. ej. 3 médicos)
+  cambiarCantidad(rol, paso) {
     const red = this.red;
     if (!red || !red.esAnfitrion || !ROLES[rol]) return;
-    const actual = red.config.roles[rol] ?? ROLES[rol].probabilidad;
-    red.config.roles = { ...red.config.roles, [rol]: Math.max(0, Math.min(100, actual + paso)) };
+    const maximo = MAX_POR_ROL[ROLES[rol].equipo];
+    const actual = Math.min(maximo, red.config.roles[rol] ?? ROLES[rol].cantidad);
+    red.config.roles = { ...red.config.roles, [rol]: Math.max(0, Math.min(maximo, actual + paso)) };
     red.enviarLobby();
   }
 
@@ -354,6 +356,8 @@ class Control {
           if (this.ui.minijuegos.id === 'fusibles') this.ui.minijuegos.cerrar(false);
           sonar('luces');
           this.ui.aviso('Volvió la luz', 2000);
+        } else if (msg.tipo === 'daltonismo') {
+          if (escena.yo && escena.yo.vivo) this.ui.aviso('¡De pronto todos se ven de otro color!', 4000);
         } else if (msg.tipo === 'grito') {
           if (msg.id !== this.miId) this.ui.aviso('¡Se escuchó un grito! Mira la marca roja', 4000);
         } else if (msg.tipo === 'escudoRoto') {

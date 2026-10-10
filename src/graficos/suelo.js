@@ -32,7 +32,8 @@ const PAPEL = {
   x: { base: '#9a9aa4', raya: '#86868f' },
   o: { base: '#3a4a7a', raya: '#2e3c68' },
   z: { base: '#5a7a4a', raya: '#4a6a3a' },
-  q: { base: '#7a6a5a', raya: '#6a5a4a' }
+  q: { base: '#7a6a5a', raya: '#6a5a4a' },
+  s: { base: '#3a4048', raya: '#2e343c' }
 };
 
 function pano(ctx, x, y, tx, ty) {
@@ -222,7 +223,7 @@ function muroFrente(ctx, x, y, tx, ty, debajo) {
     return;
   }
   px(ctx, papel.base, x, y + 3, T, 10);
-  if (debajo === 'b' || debajo === 'k' || debajo === 'l' || debajo === 'i' || debajo === 'x') {
+  if (debajo === 'b' || debajo === 'k' || debajo === 'l' || debajo === 'i' || debajo === 'x' || debajo === 's') {
     for (let k = 0; k < 2; k++) px(ctx, papel.raya, x, y + 6 + k * 4, T, 1);
     px(ctx, papel.raya, x + 7, y + 3, 1, 10);
   } else if (debajo === 'r' || debajo === 'j') {
@@ -300,6 +301,9 @@ export function dibujarSuelo() {
           break;
         case 'L':
           agua(ctx, x, y, tx, ty);
+          break;
+        case 's':
+          azulejo(ctx, x, y, '#4a5260', '#3e4450', '#2e343c');
           break;
         case 'z':
           pano(ctx, x, y, tx, ty);
